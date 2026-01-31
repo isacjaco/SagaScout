@@ -1,8 +1,5 @@
 """Example usage of SagaScout agents."""
 
-import sys
-sys.path.insert(0, '/home/runner/work/SagaScout/SagaScout')
-
 from sagascout import Scout, Archivist, Oracle, Diplomat
 from sagascout.utils import DNAAnalyzer, NarrativeMemory, GovernanceRitual
 

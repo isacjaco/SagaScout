@@ -1,5 +1,6 @@
 """Oracle agent for multilingual web research and document extraction."""
 
+import random
 from typing import List, Dict, Any, Optional
 from sagascout.core.base_agent import BaseAgent
 
@@ -318,7 +319,6 @@ class Oracle(BaseAgent):
     def _simulate_archive_search(self, archive: str, query: str) -> int:
         """Simulate archive search results count."""
         # Simulate different result counts based on archive
-        import random
         return random.randint(0, 50)
 
     def get_supported_languages(self) -> List[str]:
