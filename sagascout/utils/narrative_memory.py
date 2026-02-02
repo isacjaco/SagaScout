@@ -335,7 +335,6 @@ class GovernanceRitual:
     ) -> Dict[str, Any]:
         """Execute a coordination ritual."""
         participants = ritual["participants"]
-        task = context.get("task", {})
 
         # Assign roles based on agent types
         assignments = {}
@@ -359,7 +358,6 @@ class GovernanceRitual:
         self, ritual: Dict[str, Any], context: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Execute a review ritual."""
-        subject = context.get("subject", {})
         reviewers = ritual["participants"]
 
         # Simulate reviews

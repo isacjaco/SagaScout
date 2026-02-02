@@ -1,7 +1,6 @@
 """DNA analysis utilities for SagaScout."""
 
 from typing import List, Dict, Any, Tuple
-import numpy as np
 
 
 class DNAAnalyzer:
@@ -106,8 +105,8 @@ class DNAAnalyzer:
         for match in sorted_matches[1:]:
             match_cm = match.get("shared_cm", 0)
             
-            # If within 20% of current cluster average, add to cluster
-            if abs(match_cm - current_cm) / max(current_cm, 1) < 0.2:
+            # If within threshold of current cluster average, add to cluster
+            if abs(match_cm - current_cm) / max(current_cm, 1) < threshold:
                 current_cluster.append(match)
             else:
                 # Start new cluster

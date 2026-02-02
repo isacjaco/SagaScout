@@ -1,5 +1,6 @@
 """Diplomat agent for outreach and cross-cultural communication."""
 
+import copy
 from typing import List, Dict, Any, Optional
 from sagascout.core.base_agent import BaseAgent
 
@@ -156,7 +157,6 @@ class Diplomat(BaseAgent):
             Response draft
         """
         original_message = request.get("original_message", {})
-        sender = request.get("sender", {})
         response_tone = request.get("tone", "friendly")
 
         # Analyze original message
@@ -256,7 +256,7 @@ class Diplomat(BaseAgent):
             },
         }
 
-        template = templates.get(purpose, templates["initial_contact"])
+        template = copy.deepcopy(templates.get(purpose, templates["initial_contact"]))
         
         # Adjust for cultural context
         if cultural_notes.get("formality_level") == "high":

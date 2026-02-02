@@ -1,7 +1,6 @@
 """Scout agent for DNA match analysis and clustering."""
 
-from typing import List, Dict, Any, Tuple
-import numpy as np
+from typing import List, Dict, Any
 from sagascout.core.base_agent import BaseAgent
 
 
@@ -77,7 +76,6 @@ class Scout(BaseAgent):
             Dictionary of clusters
         """
         clusters = {}
-        cluster_id = 0
 
         for match in matches:
             shared_cm = match.get("shared_cm", 0)

@@ -1,7 +1,7 @@
 """Oracle agent for multilingual web research and document extraction."""
 
 import random
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from sagascout.core.base_agent import BaseAgent
 
 
@@ -250,6 +250,10 @@ class Oracle(BaseAgent):
                 "reliability": base["reliability"],
                 "url": f"https://example.com/{language}/source{idx}",
             }
+            # Tailor source based on countries if provided
+            if countries:
+                source["countries"] = countries
+                source["url"] = f"https://example.com/{language}/{countries[0]}/source{idx}"
             sources.append(source)
 
         return sources

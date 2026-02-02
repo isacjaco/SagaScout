@@ -28,9 +28,7 @@ setup(
     python_requires=">=3.8",
     install_requires=[
         "numpy>=1.20.0",
-        "pandas>=1.3.0",
         "networkx>=2.6",
-        "scikit-learn>=1.0.0",
     ],
     extras_require={
         "dev": [
@@ -38,6 +36,10 @@ setup(
             "pytest-cov>=3.0.0",
             "black>=22.0.0",
             "flake8>=4.0.0",
+        ],
+        "ml": [
+            "pandas>=1.3.0",
+            "scikit-learn>=1.0.0",
         ],
     },
 )
