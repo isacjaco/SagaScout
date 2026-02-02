@@ -164,6 +164,172 @@ def test_agent_memory():
     print("✓ Agent memory test passed")
 
 
+def test_genetic_clustering_hierarchical():
+    """Test hierarchical clustering in GeneticClustering."""
+    from sagascout.utils.dna_analysis import GeneticClustering
+    
+    matches = [
+        {"id": "m1", "shared_cm": 2500},
+        {"id": "m2", "shared_cm": 850},
+        {"id": "m3", "shared_cm": 150},
+        {"id": "m4", "shared_cm": 50},
+    ]
+    
+    result = GeneticClustering.hierarchical_cluster(matches)
+    
+    assert "clusters" in result
+    assert "hierarchy" in result
+    assert len(result["clusters"]) > 0
+    # Verify the hierarchy structure
+    assert "root" in result["hierarchy"]
+    assert "immediate_family" in result["hierarchy"]["root"]
+    assert "close_family" in result["hierarchy"]["root"]
+    assert "extended_family" in result["hierarchy"]["root"]
+    assert "distant_relatives" in result["hierarchy"]["root"]
+    
+    print("✓ Genetic clustering hierarchical test passed")
+
+
+def test_identify_triangulation_groups():
+    """Test triangulation group identification."""
+    from sagascout.utils.dna_analysis import GeneticClustering
+    
+    matches = [
+        {"id": "m1", "shared_cm": 850},
+        {"id": "m2", "shared_cm": 820},
+        {"id": "m3", "shared_cm": 800},
+    ]
+    
+    # Shared matches: m1 shares with m2 and m3; m2 shares with m1 and m3
+    shared_matches = {
+        "m1": ["m2", "m3"],
+        "m2": ["m1", "m3"],
+        "m3": ["m1", "m2"],
+    }
+    
+    groups = GeneticClustering.identify_triangulation_groups(matches, shared_matches)
+    
+    assert len(groups) > 0
+    assert isinstance(groups, list)
+    # Verify that m1, m2, m3 form a triangulation group
+    assert any("m1" in group and "m2" in group for group in groups)
+    
+    print("✓ Identify triangulation groups test passed")
+
+
+def test_narrative_memory_get_memory_narrative():
+    """Test getting memory narrative with connections."""
+    memory = NarrativeMemory()
+    
+    # Create multiple memories
+    mem_id1 = memory.store_memory(
+        "discovery",
+        {"data": "found ancestor"},
+        significance=0.9,
+        tags=["discovery"],
+    )
+    
+    mem_id2 = memory.store_memory(
+        "research",
+        {"data": "archive search"},
+        significance=0.7,
+        tags=["research"],
+    )
+    
+    # Connect memories
+    memory.connect_memories(mem_id1, mem_id2, "leads_to")
+    
+    # Get narrative
+    narrative = memory.get_memory_narrative(mem_id1)
+    
+    assert "memory" in narrative
+    assert "connected_memories" in narrative
+    assert "narrative_thread" in narrative
+    assert len(narrative["connected_memories"]) == 1
+    assert narrative["memory"]["id"] == mem_id1
+    
+    print("✓ Get memory narrative test passed")
+
+
+def test_narrative_memory_build_narrative_thread():
+    """Test building narrative thread from memories."""
+    memory = NarrativeMemory()
+    
+    # Create a chain of memories
+    mem_id1 = memory.store_memory("event1", {"data": "data1"}, 0.8)
+    mem_id2 = memory.store_memory("event2", {"data": "data2"}, 0.7)
+    mem_id3 = memory.store_memory("event3", {"data": "data3"}, 0.6)
+    
+    # Connect them in a chain
+    memory.connect_memories(mem_id1, mem_id2)
+    memory.connect_memories(mem_id2, mem_id3)
+    
+    # Build narrative thread
+    thread = memory._build_narrative_thread(mem_id1, depth=3)
+    
+    assert len(thread) > 0
+    assert thread[0]["id"] == mem_id1
+    # Should include connected memories
+    assert any(m["id"] == mem_id2 for m in thread)
+    
+    print("✓ Build narrative thread test passed")
+
+
+def test_governance_ritual_execute_ritual():
+    """Test executing different types of rituals."""
+    governance = GovernanceRitual()
+    
+    # Test decision ritual
+    ritual_id = governance.create_ritual(
+        "Decision Test",
+        "decision",
+        ["Agent1", "Agent2", "Agent3"],
+        {"threshold": 0.6},
+    )
+    
+    context = {
+        "Agent1_vote": "approve",
+        "Agent2_vote": "approve",
+        "Agent3_vote": "reject",
+    }
+    
+    result = governance.execute_ritual(ritual_id, context)
+    
+    assert "decision" in result
+    assert result["decision"] in ["approved", "rejected"]
+    assert "votes" in result
+    assert "approval_rate" in result
+    
+    # Test coordination ritual
+    coord_ritual_id = governance.create_ritual(
+        "Coordination Test",
+        "coordination",
+        ["Scout", "Oracle"],
+        {},
+    )
+    
+    coord_result = governance.execute_ritual(coord_ritual_id, {"task": "analyze"})
+    
+    assert coord_result["status"] == "coordinated"
+    assert "assignments" in coord_result
+    
+    # Test review ritual
+    review_ritual_id = governance.create_ritual(
+        "Review Test",
+        "review",
+        ["Reviewer1", "Reviewer2"],
+        {},
+    )
+    
+    review_result = governance.execute_ritual(review_ritual_id, {"subject": "report"})
+    
+    assert review_result["status"] == "reviewed"
+    assert "reviews" in review_result
+    assert "approved" in review_result
+    
+    print("✓ Execute ritual test passed")
+
+
 if __name__ == "__main__":
     print("Running SagaScout tests...\n")
     
@@ -175,5 +341,10 @@ if __name__ == "__main__":
     test_narrative_memory()
     test_governance_ritual()
     test_agent_memory()
+    test_genetic_clustering_hierarchical()
+    test_identify_triangulation_groups()
+    test_narrative_memory_get_memory_narrative()
+    test_narrative_memory_build_narrative_thread()
+    test_governance_ritual_execute_ritual()
     
     print("\n✓ All tests passed!")
