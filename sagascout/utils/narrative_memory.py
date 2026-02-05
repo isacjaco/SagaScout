@@ -336,17 +336,22 @@ class GovernanceRitual:
         """Execute a coordination ritual."""
         participants = ritual["participants"]
 
+        # Define agent type to role mapping
+        agent_role_mapping = {
+            "Scout": "dna_analysis",
+            "Archivist": "tree_management",
+            "Oracle": "research",
+            "Diplomat": "communication",
+        }
+
         # Assign roles based on agent types
         assignments = {}
         for participant in participants:
-            if "Scout" in participant:
-                assignments[participant] = "dna_analysis"
-            elif "Archivist" in participant:
-                assignments[participant] = "tree_management"
-            elif "Oracle" in participant:
-                assignments[participant] = "research"
-            elif "Diplomat" in participant:
-                assignments[participant] = "communication"
+            # Find matching agent type in participant name
+            for agent_type, role in agent_role_mapping.items():
+                if agent_type in participant:
+                    assignments[participant] = role
+                    break
 
         return {
             "status": "coordinated",

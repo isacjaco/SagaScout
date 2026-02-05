@@ -2,6 +2,7 @@
 
 from typing import List, Dict, Any
 from sagascout.core.base_agent import BaseAgent
+from sagascout.utils.dna_analysis import DNAAnalyzer
 
 
 class Scout(BaseAgent):
@@ -131,22 +132,7 @@ class Scout(BaseAgent):
 
     def _estimate_relationship(self, shared_cm: float) -> str:
         """Estimate relationship based on shared centiMorgans."""
-        if shared_cm >= 3500:
-            return "Parent/Child or Identical Twin"
-        elif shared_cm >= 2000:
-            return "Sibling or Grandparent/Grandchild"
-        elif shared_cm >= 1300:
-            return "Half Sibling or Uncle/Aunt"
-        elif shared_cm >= 500:
-            return "1st Cousin or Great-Grandparent"
-        elif shared_cm >= 200:
-            return "1st-2nd Cousin"
-        elif shared_cm >= 90:
-            return "2nd-3rd Cousin"
-        elif shared_cm >= 20:
-            return "3rd-4th Cousin"
-        else:
-            return "Distant Cousin"
+        return DNAAnalyzer.estimate_relationship(shared_cm)
 
     def _calculate_confidence(self, shared_cm: float, segments: int) -> float:
         """Calculate confidence score for relationship estimate."""

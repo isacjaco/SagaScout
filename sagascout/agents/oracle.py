@@ -258,52 +258,82 @@ class Oracle(BaseAgent):
 
         return sources
 
+    def _extract_document_fields(
+        self, document: Dict[str, Any], field_mapping: Dict[str, str]
+    ) -> Dict[str, Any]:
+        """
+        Extract fields from document using a field mapping.
+
+        Args:
+            document: Document to extract from
+            field_mapping: Dictionary mapping output field names to document keys
+
+        Returns:
+            Dictionary with extracted fields
+        """
+        result = {}
+        for output_key, doc_key in field_mapping.items():
+            if doc_key.endswith("[]"):
+                # Handle default empty list
+                result[output_key] = document.get(doc_key[:-2], [])
+            elif doc_key.endswith("{}"):
+                # Handle default empty dict
+                result[output_key] = document.get(doc_key[:-2], {})
+            else:
+                result[output_key] = document.get(doc_key)
+        return result
+
     def _extract_birth_record(self, document: Dict[str, Any]) -> Dict[str, Any]:
         """Extract data from a birth record."""
-        return {
-            "record_type": "birth",
-            "name": document.get("name"),
-            "birth_date": document.get("date"),
-            "birth_place": document.get("place"),
-            "parents": document.get("parents", []),
-        }
+        fields = self._extract_document_fields(document, {
+            "name": "name",
+            "birth_date": "date",
+            "birth_place": "place",
+            "parents": "parents[]",
+        })
+        fields["record_type"] = "birth"
+        return fields
 
     def _extract_death_record(self, document: Dict[str, Any]) -> Dict[str, Any]:
         """Extract data from a death record."""
-        return {
-            "record_type": "death",
-            "name": document.get("name"),
-            "death_date": document.get("date"),
-            "death_place": document.get("place"),
-            "age": document.get("age"),
-        }
+        fields = self._extract_document_fields(document, {
+            "name": "name",
+            "death_date": "date",
+            "death_place": "place",
+            "age": "age",
+        })
+        fields["record_type"] = "death"
+        return fields
 
     def _extract_marriage_record(self, document: Dict[str, Any]) -> Dict[str, Any]:
         """Extract data from a marriage record."""
-        return {
-            "record_type": "marriage",
-            "spouse1": document.get("spouse1"),
-            "spouse2": document.get("spouse2"),
-            "marriage_date": document.get("date"),
-            "marriage_place": document.get("place"),
-        }
+        fields = self._extract_document_fields(document, {
+            "spouse1": "spouse1",
+            "spouse2": "spouse2",
+            "marriage_date": "date",
+            "marriage_place": "place",
+        })
+        fields["record_type"] = "marriage"
+        return fields
 
     def _extract_census(self, document: Dict[str, Any]) -> Dict[str, Any]:
         """Extract data from a census record."""
-        return {
-            "record_type": "census",
-            "year": document.get("year"),
-            "household": document.get("household", []),
-            "location": document.get("location"),
-        }
+        fields = self._extract_document_fields(document, {
+            "year": "year",
+            "household": "household[]",
+            "location": "location",
+        })
+        fields["record_type"] = "census"
+        return fields
 
     def _extract_general(self, document: Dict[str, Any]) -> Dict[str, Any]:
         """Extract general information from a document."""
-        return {
-            "record_type": "general",
-            "content": document.get("content"),
-            "metadata": document.get("metadata", {}),
-        }
+        fields = self._extract_document_fields(document, {
+            "content": "content",
+            "metadata": "metadata{}",
+        })
+        fields["record_type"] = "general"
+        return fields
 
     def _calculate_extraction_confidence(
         self, extracted: Dict[str, Any]
