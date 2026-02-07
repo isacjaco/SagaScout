@@ -225,10 +225,25 @@ class Archivist(BaseAgent):
         else:
             return {"error": f"Unknown query type: {query_type}"}
 
-    def _get_ancestors(self, person_id: str) -> Dict[str, Any]:
-        """Get all ancestors of a person."""
+    def _validate_person_exists(self, person_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Validate that a person exists in the tree.
+
+        Args:
+            person_id: Person's ID
+
+        Returns:
+            Error dictionary if person not found, None otherwise
+        """
         if person_id not in self.tree:
             return {"error": "Person not found"}
+        return None
+
+    def _get_ancestors(self, person_id: str) -> Dict[str, Any]:
+        """Get all ancestors of a person."""
+        error = self._validate_person_exists(person_id)
+        if error:
+            return error
 
         ancestors = list(nx.ancestors(self.tree, person_id))
         return {
@@ -239,8 +254,9 @@ class Archivist(BaseAgent):
 
     def _get_descendants(self, person_id: str) -> Dict[str, Any]:
         """Get all descendants of a person."""
-        if person_id not in self.tree:
-            return {"error": "Person not found"}
+        error = self._validate_person_exists(person_id)
+        if error:
+            return error
 
         descendants = list(nx.descendants(self.tree, person_id))
         return {
@@ -251,8 +267,9 @@ class Archivist(BaseAgent):
 
     def _get_siblings(self, person_id: str) -> Dict[str, Any]:
         """Get siblings of a person."""
-        if person_id not in self.tree:
-            return {"error": "Person not found"}
+        error = self._validate_person_exists(person_id)
+        if error:
+            return error
 
         # Find parents
         parents = list(self.tree.predecessors(person_id))

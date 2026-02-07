@@ -77,6 +77,34 @@ class DNAAnalyzer:
             return (7, 10)  # Distant cousins
 
     @staticmethod
+    def estimate_relationship(shared_cm: float) -> str:
+        """
+        Estimate relationship type based on shared centiMorgans.
+
+        Args:
+            shared_cm: Shared centiMorgans
+
+        Returns:
+            String describing the estimated relationship
+        """
+        if shared_cm >= 3500:
+            return "Parent/Child or Identical Twin"
+        elif shared_cm >= 2000:
+            return "Sibling or Grandparent/Grandchild"
+        elif shared_cm >= 1300:
+            return "Half Sibling or Uncle/Aunt"
+        elif shared_cm >= 500:
+            return "1st Cousin or Great-Grandparent"
+        elif shared_cm >= 200:
+            return "1st-2nd Cousin"
+        elif shared_cm >= 90:
+            return "2nd-3rd Cousin"
+        elif shared_cm >= 20:
+            return "3rd-4th Cousin"
+        else:
+            return "Distant Cousin"
+
+    @staticmethod
     def cluster_by_similarity(
         matches: List[Dict[str, Any]], threshold: float = 0.8
     ) -> List[List[Dict[str, Any]]]:
