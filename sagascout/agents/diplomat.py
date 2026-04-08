@@ -67,6 +67,11 @@ class Diplomat(BaseAgent):
         """
         Draft an outreach message.
 
+        When ``config['llm_api_key']`` and optionally ``config['llm_model']``
+        are set, uses an OpenAI-compatible API to generate a culturally nuanced
+        message. Falls back to template-based drafting on any error or when the
+        config keys are absent.
+
         Args:
             request: Message draft request
 
@@ -82,10 +87,16 @@ class Diplomat(BaseAgent):
         country = recipient.get("country", "US")
         cultural_notes = self.cultural_profiles.get(country, {})
 
-        # Draft message based on purpose
-        message = self._compose_message(
-            purpose, language, context, cultural_notes
-        )
+        # Try LLM drafting if configured; fall back to templates
+        if self.config.get("llm_api_key"):
+            message = self._compose_message_with_llm(
+                purpose, language, context, cultural_notes,
+                recipient, request
+            ) or self._compose_message(purpose, language, context, cultural_notes)
+        else:
+            message = self._compose_message(
+                purpose, language, context, cultural_notes
+            )
 
         draft = {
             "recipient": recipient,
@@ -103,6 +114,54 @@ class Diplomat(BaseAgent):
             "recommendations": self._generate_recommendations(
                 draft, cultural_notes
             ),
+        }
+
+    def draft_with_llm(
+        self, request: Dict[str, Any], llm_client: Any = None
+    ) -> Dict[str, Any]:
+        """
+        Draft a message using an OpenAI-compatible client object.
+
+        This is an explicit alternative to :meth:`draft_message` that accepts
+        a pre-instantiated client rather than reading credentials from config.
+
+        Args:
+            request: Message draft request (same format as :meth:`draft_message`)
+            llm_client: An object with a ``chat.completions.create`` method
+                        (e.g. ``openai.OpenAI()``). Falls back to template
+                        drafting when ``None``.
+
+        Returns:
+            Drafted message result
+        """
+        recipient = request.get("recipient", {})
+        purpose = request.get("purpose", "initial_contact")
+        language = request.get("language", "en")
+        context = request.get("context", {})
+        country = recipient.get("country", "US")
+        cultural_notes = self.cultural_profiles.get(country, {})
+
+        message = None
+        if llm_client is not None:
+            message = self._call_llm_client(
+                llm_client, purpose, language, context, cultural_notes, recipient
+            )
+        if message is None:
+            message = self._compose_message(purpose, language, context, cultural_notes)
+
+        draft = {
+            "recipient": recipient,
+            "language": language,
+            "purpose": purpose,
+            "subject": message["subject"],
+            "body": message["body"],
+            "cultural_notes": cultural_notes,
+            "tone": message["tone"],
+        }
+        return {
+            "status": "success",
+            "draft": draft,
+            "recommendations": self._generate_recommendations(draft, cultural_notes),
         }
 
     def send_message(self, request: Dict[str, Any]) -> Dict[str, Any]:
@@ -440,3 +499,87 @@ class Diplomat(BaseAgent):
     def get_contact_info(self, contact_id: str) -> Optional[Dict[str, Any]]:
         """Get information about a contact."""
         return self.contacts.get(contact_id)
+
+    # ------------------------------------------------------------------ #
+    # LLM helpers                                                          #
+    # ------------------------------------------------------------------ #
+
+    def _compose_message_with_llm(
+        self,
+        purpose: str,
+        language: str,
+        context: Dict[str, Any],
+        cultural_notes: Dict[str, Any],
+        recipient: Dict[str, Any],
+        request: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Compose a message using an OpenAI-compatible API configured via
+        ``config['llm_api_key']`` and optionally ``config['llm_model']``.
+
+        Returns ``None`` on any failure so the caller can fall back to templates.
+        """
+        try:
+            import openai
+            client = openai.OpenAI(api_key=self.config["llm_api_key"])
+            return self._call_llm_client(
+                client, purpose, language, context, cultural_notes, recipient
+            )
+        except Exception:
+            return None
+
+    def _call_llm_client(
+        self,
+        client: Any,
+        purpose: str,
+        language: str,
+        context: Dict[str, Any],
+        cultural_notes: Dict[str, Any],
+        recipient: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Call an OpenAI-compatible ``chat.completions.create`` method to draft
+        a genealogy outreach message.
+
+        Returns a message dict on success, ``None`` on any failure.
+        """
+        model = self.config.get("llm_model", "gpt-3.5-turbo")
+        formality = cultural_notes.get("formality_level", "medium")
+        comm_style = cultural_notes.get("communication_style", "direct")
+        system_prompt = (
+            "You are a genealogy communication expert. "
+            "Draft concise, culturally appropriate outreach messages."
+        )
+        user_prompt = (
+            f"Draft a genealogy message.\n"
+            f"Purpose: {purpose}\n"
+            f"Language: {language}\n"
+            f"Recipient country: {recipient.get('country', 'US')}\n"
+            f"Formality: {formality}\n"
+            f"Communication style: {comm_style}\n"
+            f"Context: {context}\n\n"
+            "Return ONLY a JSON object with keys 'subject', 'body', and 'tone'."
+        )
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                max_tokens=500,
+                temperature=0.7,
+            )
+            import json as _json
+            content = response.choices[0].message.content.strip()
+            # Strip markdown fences if present
+            if content.startswith("```"):
+                content = content.split("```")[1]
+                if content.startswith("json"):
+                    content = content[4:]
+            parsed = _json.loads(content)
+            if all(k in parsed for k in ("subject", "body", "tone")):
+                return parsed
+        except Exception:
+            pass
+        return None

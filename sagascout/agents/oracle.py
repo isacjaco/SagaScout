@@ -1,7 +1,7 @@
 """Oracle agent for multilingual web research and document extraction."""
 
-import random
-from typing import List, Dict, Any
+import time
+from typing import List, Dict, Any, Optional
 from sagascout.core.base_agent import BaseAgent
 
 
@@ -22,7 +22,11 @@ class Oracle(BaseAgent):
 
         Args:
             name: Name of the agent
-            config: Configuration dictionary
+            config: Configuration dictionary. Supported keys:
+                - live_search (bool): Enable real HTTP research (default: False)
+                - translation_provider (str): 'google' or None for stub (default: None)
+                - archive_search_result_count (int): Fixed result count for stub
+                  archive searches; uses realistic defaults when not set
         """
         super().__init__(name, config)
         self.supported_languages = [
@@ -72,6 +76,10 @@ class Oracle(BaseAgent):
         """
         Conduct multilingual research.
 
+        When ``config['live_search']`` is ``True``, performs real HTTP searches
+        using the FamilySearch public search interface. Otherwise returns
+        deterministic stub results suitable for testing.
+
         Args:
             request: Research request with query and parameters
 
@@ -90,14 +98,17 @@ class Oracle(BaseAgent):
                 "results": self.research_cache[cache_key],
             }
 
-        # Simulate multilingual research
         results = []
         for lang in languages:
             if lang in self.supported_languages:
+                if self.config.get("live_search"):
+                    sources = self._live_search(query, lang, countries)
+                else:
+                    sources = self._generate_sources(query, lang, countries)
                 result = {
                     "language": lang,
                     "query": query,
-                    "sources": self._generate_sources(query, lang, countries),
+                    "sources": sources,
                     "summary": f"Research results for '{query}' in {lang}",
                 }
                 results.append(result)
@@ -112,6 +123,64 @@ class Oracle(BaseAgent):
             "results": results,
             "total_sources": sum(len(r["sources"]) for r in results),
         }
+
+    def _live_search(
+        self, query: str, language: str, countries: List[str]
+    ) -> List[Dict[str, Any]]:
+        """
+        Perform a real HTTP search for genealogical records.
+
+        Uses the FamilySearch public catalog search endpoint. Retries up to
+        3 times with exponential back-off on transient HTTP errors.
+
+        Args:
+            query: Search query string
+            language: BCP-47 language code
+            countries: List of ISO 3166-1 alpha-2 country codes
+
+        Returns:
+            List of source dictionaries
+        """
+        try:
+            import requests
+            from bs4 import BeautifulSoup
+        except ImportError:
+            return self._generate_sources(query, language, countries)
+
+        url = "https://www.familysearch.org/search/catalog"
+        params = {"q": query, "lang": language}
+        if countries:
+            params["places"] = ",".join(countries)
+
+        sources = []
+        for attempt in range(3):
+            try:
+                response = requests.get(url, params=params, timeout=10)
+                response.raise_for_status()
+                soup = BeautifulSoup(response.text, "html.parser")
+                for link in soup.select("a[href]")[:4]:
+                    href = link.get("href", "")
+                    if href.startswith("/"):
+                        href = f"https://www.familysearch.org{href}"
+                    sources.append({
+                        "id": f"live_{language}_{len(sources)}",
+                        "language": language,
+                        "type": "archive",
+                        "reliability": 0.9,
+                        "url": href,
+                        "title": link.get_text(strip=True),
+                    })
+                break
+            except Exception:
+                if attempt < 2:
+                    time.sleep(2 ** attempt)
+                else:
+                    # Fall back to stubs on persistent failure
+                    return self._generate_sources(query, language, countries)
+
+        return sources if sources else self._generate_sources(
+            query, language, countries
+        )
 
     def extract_document(self, request: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -156,6 +225,11 @@ class Oracle(BaseAgent):
         """
         Translate a query into multiple languages.
 
+        When ``config['translation_provider']`` is ``'google'``, uses the
+        ``deep-translator`` library to perform real translations via Google
+        Translate (no API key required for the free tier). Otherwise returns
+        stub translations prefixed with the language code.
+
         Args:
             request: Translation request
 
@@ -164,16 +238,22 @@ class Oracle(BaseAgent):
         """
         query = request.get("query", "")
         target_languages = request.get("languages", self.supported_languages)
+        provider = self.config.get("translation_provider")
 
         translations = {}
         for lang in target_languages:
-            if lang in self.supported_languages:
-                # Simulate translation
-                translations[lang] = {
-                    "original": query,
-                    "translated": f"[{lang}] {query}",
-                    "language": lang,
-                }
+            if lang not in self.supported_languages:
+                continue
+            if provider == "google":
+                translated_text = self._translate_with_google(query, lang)
+            else:
+                # Deterministic stub: prefix with language code
+                translated_text = f"[{lang}] {query}"
+            translations[lang] = {
+                "original": query,
+                "translated": translated_text,
+                "language": lang,
+            }
 
         return {
             "status": "success",
@@ -350,10 +430,44 @@ class Oracle(BaseAgent):
         
         return (filled_fields / total_fields) * 100
 
+    def _translate_with_google(self, text: str, target_lang: str) -> str:
+        """
+        Translate text using Google Translate via deep-translator.
+
+        Falls back to stub on import error or translation failure.
+
+        Args:
+            text: Text to translate
+            target_lang: BCP-47 language code
+
+        Returns:
+            Translated text string
+        """
+        try:
+            from deep_translator import GoogleTranslator
+            return GoogleTranslator(source="auto", target=target_lang).translate(text)
+        except Exception:
+            return f"[{target_lang}] {text}"
+
     def _simulate_archive_search(self, archive: str, query: str) -> int:
-        """Simulate archive search results count."""
-        # Simulate different result counts based on archive
-        return random.randint(0, 50)
+        """
+        Return a deterministic stub result count for an archive search.
+
+        The count is derived from the lengths of the archive and query strings
+        so the value is stable across test runs. The ``archive_search_result_count``
+        config key can override this to a fixed value.
+
+        Args:
+            archive: Archive name
+            query: Search query
+
+        Returns:
+            Simulated record count (0–50)
+        """
+        if "archive_search_result_count" in self.config:
+            return int(self.config["archive_search_result_count"])
+        # Deterministic hash-based stub: 0-50 range
+        return (len(archive) + len(query)) % 51
 
     def get_supported_languages(self) -> List[str]:
         """Get list of supported languages."""

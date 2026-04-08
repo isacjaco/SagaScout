@@ -27,8 +27,11 @@ setup(
     ],
     python_requires=">=3.8",
     install_requires=[
-        "numpy>=1.20.0",
         "networkx>=2.6",
+        "requests>=2.28.0",
+        "beautifulsoup4>=4.11.0",
+        "deep-translator>=1.11.0",
+        "python-gedcom>=1.0.0",
     ],
     extras_require={
         "dev": [
@@ -37,9 +40,15 @@ setup(
             "black>=22.0.0",
             "flake8>=4.0.0",
         ],
-        "ml": [
-            "pandas>=1.3.0",
-            "scikit-learn>=1.0.0",
+        "api": [
+            "fastapi>=0.100.0",
+            "uvicorn>=0.20.0",
+            "httpx>=0.24.0",
+        ],
+    },
+    entry_points={
+        "console_scripts": [
+            "sagascout=sagascout.__main__:main",
         ],
     },
 )
