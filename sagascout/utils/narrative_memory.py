@@ -250,6 +250,9 @@ class NarrativeMemory:
         return cls.from_json(data)
 
 
-# Backward-compatible re-export so existing imports still work
+# GovernanceRitual now lives in sagascout.utils.governance.  This re-export
+# is kept here for backward compatibility so that any code that previously
+# imported GovernanceRitual from sagascout.utils.narrative_memory continues
+# to work without modification.
 from sagascout.utils.governance import GovernanceRitual  # noqa: F401, E402
 

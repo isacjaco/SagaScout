@@ -1,8 +1,11 @@
 """Oracle agent for multilingual web research and document extraction."""
 
+import logging
 import time
 from typing import List, Dict, Any, Optional
 from sagascout.core.base_agent import BaseAgent
+
+logger = logging.getLogger(__name__)
 
 
 class Oracle(BaseAgent):
@@ -171,7 +174,11 @@ class Oracle(BaseAgent):
                         "title": link.get_text(strip=True),
                     })
                 break
-            except Exception:
+            except Exception as exc:
+                logger.debug(
+                    "Live search attempt %d/%d failed for query=%r lang=%r: %s",
+                    attempt + 1, 3, query, language, exc,
+                )
                 if attempt < 2:
                     time.sleep(2 ** attempt)
                 else:

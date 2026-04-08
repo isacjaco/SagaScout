@@ -1,6 +1,7 @@
 """Diplomat agent for outreach and cross-cultural communication."""
 
 import copy
+import json
 from typing import List, Dict, Any, Optional
 from sagascout.core.base_agent import BaseAgent
 
@@ -570,14 +571,13 @@ class Diplomat(BaseAgent):
                 max_tokens=500,
                 temperature=0.7,
             )
-            import json as _json
             content = response.choices[0].message.content.strip()
             # Strip markdown fences if present
             if content.startswith("```"):
                 content = content.split("```")[1]
                 if content.startswith("json"):
                     content = content[4:]
-            parsed = _json.loads(content)
+            parsed = json.loads(content)
             if all(k in parsed for k in ("subject", "body", "tone")):
                 return parsed
         except Exception:

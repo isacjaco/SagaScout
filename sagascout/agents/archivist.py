@@ -385,7 +385,8 @@ class Archivist(BaseAgent):
         except ImportError:
             return {"error": "python-gedcom is not installed. Run: pip install python-gedcom"}
 
-        path = Path(filepath)
+        # Resolve and validate path before use to guard against path traversal
+        path = Path(filepath).resolve()
         if not path.is_file():
             return {"error": f"File not found: {filepath}"}
 
@@ -512,11 +513,13 @@ class Archivist(BaseAgent):
 
         lines.append("0 TRLR")
 
-        Path(filepath).write_text("\n".join(lines), encoding="utf-8")
+        # Resolve path to guard against path traversal before writing
+        dest = Path(filepath).resolve()
+        dest.write_text("\n".join(lines), encoding="utf-8")
 
         return {
             "status": "success",
-            "filepath": filepath,
+            "filepath": str(dest),
             "individuals_exported": len(self.individuals),
         }
 
