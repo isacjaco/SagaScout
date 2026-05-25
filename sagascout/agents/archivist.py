@@ -1,5 +1,7 @@
 """Archivist agent for family tree parsing, merging, and relationship inference."""
 
+import json
+from pathlib import Path
 from typing import List, Dict, Any, Optional
 import networkx as nx
 from sagascout.core.base_agent import BaseAgent
@@ -44,7 +46,7 @@ class Archivist(BaseAgent):
         data = input_data.get("data", {})
 
         result = {}
-        
+
         if action == "parse":
             result = self.parse_tree(data)
         elif action == "merge":
@@ -55,6 +57,12 @@ class Archivist(BaseAgent):
             )
         elif action == "query":
             result = self.query_tree(data)
+        elif action == "parse_gedcom":
+            result = self.parse_gedcom(data.get("filepath", ""))
+        elif action == "export_gedcom":
+            result = self.export_gedcom(data.get("filepath", ""))
+        elif action == "to_json":
+            result = self.to_json()
         else:
             result = {"error": f"Unknown action: {action}"}
 
@@ -351,5 +359,232 @@ class Archivist(BaseAgent):
                 "person_id": existing.get("id"),
                 "conflicts": conflicts,
             }
-        
+
         return None
+
+    # ------------------------------------------------------------------ #
+    # GEDCOM support                                                       #
+    # ------------------------------------------------------------------ #
+
+    def parse_gedcom(self, filepath: str) -> Dict[str, Any]:
+        """
+        Parse a GEDCOM (.ged) file and load individuals and relationships.
+
+        Requires ``python-gedcom`` (``pip install python-gedcom``).
+
+        Args:
+            filepath: Path to the GEDCOM file
+
+        Returns:
+            Dictionary with parsing results
+        """
+        try:
+            from gedcom.parser import Parser
+            from gedcom.element.individual import IndividualElement
+            from gedcom.element.family import FamilyElement
+        except ImportError:
+            return {"error": "python-gedcom is not installed. Run: pip install python-gedcom"}
+
+        # Resolve and validate path before use to guard against path traversal
+        path = Path(filepath).resolve()
+        if not path.is_file():
+            return {"error": f"File not found: {filepath}"}
+
+        parser = Parser()
+        parser.parse_file(str(path))
+
+        individuals_added = 0
+        relationships_added = 0
+        root_child_elements = parser.get_root_child_elements()
+
+        # Index individuals first
+        id_map: Dict[str, str] = {}  # gedcom pointer -> our id
+        for element in root_child_elements:
+            if isinstance(element, IndividualElement):
+                pointer = element.get_pointer()
+                # Use pointer as ID (strip @)
+                person_id = pointer.strip("@")
+                (first, last) = element.get_name()
+                name = f"{first} {last}".strip() or person_id
+                birth_data = element.get_birth_data()
+                death_data = element.get_death_data()
+                person = {
+                    "id": person_id,
+                    "name": name,
+                }
+                if birth_data:
+                    person["birth_date"] = birth_data[0] or None
+                    person["birth_place"] = birth_data[1] or None
+                if death_data:
+                    person["death_date"] = death_data[0] or None
+                self.individuals[person_id] = person
+                self.tree.add_node(person_id, **person)
+                id_map[pointer] = person_id
+                individuals_added += 1
+
+        # Process family relationships
+        for element in root_child_elements:
+            if isinstance(element, FamilyElement):
+                children_ids = []
+                for child_element in element.get_child_elements():
+                    tag = child_element.get_tag()
+                    ptr = child_element.get_value()
+                    if tag == "CHIL":
+                        children_ids.append(id_map.get(ptr))
+                    elif tag in ("HUSB", "WIFE"):
+                        # Will be used as parent(s)
+                        pass
+
+                # Build parent list for this family
+                parent_ids = []
+                for child_element in element.get_child_elements():
+                    tag = child_element.get_tag()
+                    ptr = child_element.get_value()
+                    if tag in ("HUSB", "WIFE"):
+                        pid = id_map.get(ptr)
+                        if pid:
+                            parent_ids.append(pid)
+
+                for parent_id in parent_ids:
+                    for child_id in children_ids:
+                        if child_id and not self.tree.has_edge(parent_id, child_id):
+                            self.tree.add_edge(parent_id, child_id, relationship="parent")
+                            relationships_added += 1
+
+        return {
+            "status": "success",
+            "individuals_added": individuals_added,
+            "relationships_added": relationships_added,
+            "total_nodes": self.tree.number_of_nodes(),
+            "total_edges": self.tree.number_of_edges(),
+        }
+
+    def export_gedcom(self, filepath: str) -> Dict[str, Any]:
+        """
+        Export the current family tree as a GEDCOM (.ged) file.
+
+        Produces a minimal but standards-compliant GEDCOM 5.5.1 file.
+
+        Args:
+            filepath: Destination file path
+
+        Returns:
+            Dictionary with export results
+        """
+        lines = ["0 HEAD", "1 GEDC", "2 VERS 5.5.1", "2 FORM LINEAGE-LINKED",
+                 "1 CHAR UTF-8"]
+
+        for person_id, person in self.individuals.items():
+            pointer = f"@{person_id}@"
+            lines.append(f"0 {pointer} INDI")
+            name = person.get("name", "")
+            if name:
+                lines.append(f"1 NAME {name}")
+            birth_date = person.get("birth_date")
+            birth_place = person.get("birth_place")
+            if birth_date or birth_place:
+                lines.append("1 BIRT")
+                if birth_date:
+                    lines.append(f"2 DATE {birth_date}")
+                if birth_place:
+                    lines.append(f"2 PLAC {birth_place}")
+            death_date = person.get("death_date")
+            if death_date:
+                lines.append("1 DEAT")
+                lines.append(f"2 DATE {death_date}")
+
+        # Write family records grouped by parent->child edges
+        written_families: set = set()
+        fam_counter = 0
+        for parent_id in self.tree.nodes():
+            children = list(self.tree.successors(parent_id))
+            if not children:
+                continue
+            fam_key = (parent_id, tuple(sorted(children)))
+            if fam_key in written_families:
+                continue
+            written_families.add(fam_key)
+            fam_id = f"@F{fam_counter}@"
+            fam_counter += 1
+            lines.append(f"0 {fam_id} FAM")
+            lines.append(f"1 HUSB @{parent_id}@")
+            for child_id in children:
+                lines.append(f"1 CHIL @{child_id}@")
+
+        lines.append("0 TRLR")
+
+        # Resolve path to guard against path traversal before writing
+        dest = Path(filepath).resolve()
+        dest.write_text("\n".join(lines), encoding="utf-8")
+
+        return {
+            "status": "success",
+            "filepath": str(dest),
+            "individuals_exported": len(self.individuals),
+        }
+
+    # ------------------------------------------------------------------ #
+    # JSON serialization                                                   #
+    # ------------------------------------------------------------------ #
+
+    def to_json(self) -> Dict[str, Any]:
+        """
+        Serialize the current tree state to a JSON-compatible dictionary.
+
+        Returns:
+            Dictionary containing individuals and adjacency list
+        """
+        adjacency = [
+            {"parent": u, "child": v, "type": data.get("relationship", "parent")}
+            for u, v, data in self.tree.edges(data=True)
+        ]
+        return {
+            "individuals": list(self.individuals.values()),
+            "relationships": adjacency,
+        }
+
+    def save_to_file(self, filepath: str) -> None:
+        """
+        Save tree state to a JSON file.
+
+        Args:
+            filepath: Destination file path
+        """
+        Path(filepath).write_text(
+            json.dumps(self.to_json(), indent=2), encoding="utf-8"
+        )
+
+    @classmethod
+    def from_json(cls, data: Dict[str, Any], name: str = "Archivist",
+                  config: Dict[str, Any] = None) -> "Archivist":
+        """
+        Restore an Archivist from a previously serialized dictionary.
+
+        Args:
+            data: Dictionary as returned by :meth:`to_json`
+            name: Agent name
+            config: Optional configuration
+
+        Returns:
+            Archivist instance populated with the saved state
+        """
+        archivist = cls(name=name, config=config)
+        archivist.parse_tree(data)
+        return archivist
+
+    @classmethod
+    def load_from_file(cls, filepath: str, name: str = "Archivist",
+                       config: Dict[str, Any] = None) -> "Archivist":
+        """
+        Load an Archivist from a JSON file saved by :meth:`save_to_file`.
+
+        Args:
+            filepath: Source file path
+            name: Agent name
+            config: Optional configuration
+
+        Returns:
+            Archivist instance populated with the saved state
+        """
+        data = json.loads(Path(filepath).read_text(encoding="utf-8"))
+        return cls.from_json(data, name=name, config=config)
