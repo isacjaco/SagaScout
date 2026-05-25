@@ -34,6 +34,7 @@ setup(
         "python-gedcom>=1.0.0",
         "fastapi>=0.100.0",
         "uvicorn>=0.20.0",
+        "httpx>=0.24.0",
     ],
     extras_require={
         "dev": [
