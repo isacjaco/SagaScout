@@ -32,6 +32,9 @@ setup(
         "beautifulsoup4>=4.11.0",
         "deep-translator>=1.11.0",
         "python-gedcom>=1.0.0",
+        "fastapi>=0.100.0",
+        "uvicorn>=0.20.0",
+        "httpx>=0.24.0",
     ],
     extras_require={
         "dev": [
