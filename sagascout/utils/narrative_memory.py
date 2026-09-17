@@ -81,6 +81,8 @@ class NarrativeMemory:
         """
         results = []
 
+        query_lower = query.lower() if query else None
+
         for memory in self.memories:
             # Apply filters
             if event_type and memory["type"] != event_type:
@@ -92,9 +94,9 @@ class NarrativeMemory:
             if tags and not any(tag in memory["tags"] for tag in tags):
                 continue
             
-            if query:
+            if query_lower:
                 content_str = str(memory["content"]).lower()
-                if query.lower() not in content_str:
+                if query_lower not in content_str:
                     continue
 
             results.append(memory)
