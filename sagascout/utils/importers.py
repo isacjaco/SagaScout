@@ -348,9 +348,7 @@ class JSONImporter:
                 "notes": person.get("notes", []),
             }
             # Carry over any extra keys
-            for key, val in person.items():
-                if key not in ind:
-                    ind[key] = val
+            ind = {**person, **ind}
             individuals.append(ind)
 
             # Derive parent relationships from father_id / mother_id
