@@ -2,6 +2,7 @@
 
 import json
 import re
+from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 
 
@@ -44,7 +45,11 @@ class GEDCOMImporter:
         Returns:
             Normalised tree dict with ``individuals`` and ``relationships``.
         """
-        with open(filepath, "r", encoding="utf-8", errors="replace") as fh:
+        path = Path(filepath).resolve()
+        if not path.is_file():
+            raise FileNotFoundError(f"File not found: {filepath}")
+
+        with open(path, "r", encoding="utf-8", errors="replace") as fh:
             content = fh.read()
         return self.parse_string(content)
 
@@ -275,7 +280,11 @@ class JSONImporter:
         Returns:
             Normalised tree dict with ``individuals`` and ``relationships``.
         """
-        with open(filepath, "r", encoding="utf-8") as fh:
+        path = Path(filepath).resolve()
+        if not path.is_file():
+            raise FileNotFoundError(f"File not found: {filepath}")
+
+        with open(path, "r", encoding="utf-8") as fh:
             data = json.load(fh)
         return self.parse_dict(data)
 
