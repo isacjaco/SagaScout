@@ -367,7 +367,7 @@ def test_archivist_serialization_roundtrip():
 
 def test_archivist_save_load_file(tmp_path):
     """Test Archivist save_to_file / load_from_file."""
-    archivist = Archivist(name="TestArchivist")
+    archivist = Archivist(name="TestArchivist", config={"base_dir": tmp_path})
     archivist.process({
         "action": "parse",
         "data": {
@@ -384,7 +384,7 @@ def test_archivist_save_load_file(tmp_path):
 
 def test_archivist_gedcom_export(tmp_path):
     """Test GEDCOM export produces a valid-looking .ged file."""
-    archivist = Archivist(name="TestArchivist")
+    archivist = Archivist(name="TestArchivist", config={"base_dir": tmp_path})
     archivist.process({
         "action": "parse",
         "data": {
@@ -642,6 +642,22 @@ def test_api_archivist_parse():
     })
     assert response.status_code == 200
     assert response.json()["result"]["status"] == "success"
+
+
+def test_archivist_export_path_traversal(tmp_path):
+    """Test that Archivist prevents path traversal when writing files."""
+    archivist = Archivist(name="TestArchivist", config={"base_dir": tmp_path})
+
+    # Test export_gedcom
+    traversal_path = str(tmp_path / "../../../evil.ged")
+    result = archivist.export_gedcom(traversal_path)
+    assert result["status"] == "error"
+    assert "Path traversal detected" in result["error"]
+
+    # Test save_to_file
+    traversal_json = str(tmp_path / "../../../evil.json")
+    with pytest.raises(ValueError, match="Path traversal detected"):
+        archivist.save_to_file(traversal_json)
 
 
 if __name__ == "__main__":
