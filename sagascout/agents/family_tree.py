@@ -34,8 +34,6 @@ Usage
     report = manager.run_discovery_cycle()
 """
 
-from __future__ import annotations
-
 from typing import Any, Dict, List, Optional
 
 import networkx as nx
@@ -84,9 +82,9 @@ class FamilyNodeAgent(BaseAgent):
         self.person_data: Dict[str, Any] = dict(person_data)
 
         # Tree structure
-        self.mother_agent: Optional[FamilyNodeAgent] = None
-        self.father_agent: Optional[FamilyNodeAgent] = None
-        self.child_agents: List[FamilyNodeAgent] = []
+        self.mother_agent: Optional["FamilyNodeAgent"] = None
+        self.father_agent: Optional["FamilyNodeAgent"] = None
+        self.child_agents: List["FamilyNodeAgent"] = []
 
         # Knowledge containers
         self._collected_knowledge: List[Dict[str, Any]] = []
@@ -96,17 +94,17 @@ class FamilyNodeAgent(BaseAgent):
     # Tree structure helpers
     # ------------------------------------------------------------------
 
-    def add_child(self, child: FamilyNodeAgent) -> None:
+    def add_child(self, child: "FamilyNodeAgent") -> None:
         """Register *child* as a descendant of this node."""
         if child not in self.child_agents:
             self.child_agents.append(child)
 
-    def set_mother(self, mother: FamilyNodeAgent) -> None:
+    def set_mother(self, mother: "FamilyNodeAgent") -> None:
         """Set the mother (parent) agent for this node."""
         self.mother_agent = mother
         mother.add_child(self)
 
-    def set_father(self, father: FamilyNodeAgent) -> None:
+    def set_father(self, father: "FamilyNodeAgent") -> None:
         """Set the father (parent) agent for this node."""
         self.father_agent = father
         father.add_child(self)
@@ -476,9 +474,9 @@ class FamilyTreeManager(BaseAgent):
     ) -> None:
         super().__init__(name, config)
         # person_id → FamilyNodeAgent (or LineageScoutAgent)
-        self._nodes: Dict[str, FamilyNodeAgent] = {}
-        self._root_nodes: List[FamilyNodeAgent] = []  # no parents
-        self._leaf_nodes: List[FamilyNodeAgent] = []  # no children (scouts)
+        self._nodes: Dict[str, "FamilyNodeAgent"] = {}
+        self._root_nodes: List["FamilyNodeAgent"] = []  # no parents
+        self._leaf_nodes: List["FamilyNodeAgent"] = []  # no children (scouts)
         self._discovery_reports: List[Dict[str, Any]] = []
 
     # ------------------------------------------------------------------
@@ -657,15 +655,15 @@ class FamilyTreeManager(BaseAgent):
     # Introspection
     # ------------------------------------------------------------------
 
-    def get_node(self, person_id: str) -> Optional[FamilyNodeAgent]:
+    def get_node(self, person_id: str) -> Optional["FamilyNodeAgent"]:
         """Return the agent for a specific person ID, or None."""
         return self._nodes.get(person_id)
 
-    def get_all_nodes(self) -> Dict[str, FamilyNodeAgent]:
+    def get_all_nodes(self) -> Dict[str, "FamilyNodeAgent"]:
         """Return all person-id → agent mappings."""
         return dict(self._nodes)
 
-    def get_scouts(self) -> List[LineageScoutAgent]:
+    def get_scouts(self) -> List["LineageScoutAgent"]:
         """Return all LineageScoutAgent instances."""
         return [n for n in self._root_nodes if isinstance(n, LineageScoutAgent)]
 
