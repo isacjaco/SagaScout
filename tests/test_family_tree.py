@@ -118,6 +118,10 @@ class TestGEDCOMImporter:
         result = GEDCOMImporter().parse_file(str(ged_file))
         assert len(result["individuals"]) == 4
 
+    def test_parse_file_invalid_path(self):
+        with pytest.raises(FileNotFoundError):
+            GEDCOMImporter().parse_file("/path/that/does/not/exist.ged")
+
     def test_occupation_parsed(self):
         result = GEDCOMImporter().parse_string(SAMPLE_GEDCOM)
         george = next(i for i in result["individuals"] if i["name"] == "George Smith")
@@ -169,6 +173,10 @@ class TestJSONImporter:
         json_file.write_text(SAMPLE_JSON_FLAT, encoding="utf-8")
         result = JSONImporter().parse_file(str(json_file))
         assert len(result["individuals"]) == 4
+
+    def test_parse_file_invalid_path(self):
+        with pytest.raises(FileNotFoundError):
+            JSONImporter().parse_file("/path/that/does/not/exist.json")
 
     def test_name_preserved(self):
         result = JSONImporter().parse_string(SAMPLE_JSON_FLAT)
