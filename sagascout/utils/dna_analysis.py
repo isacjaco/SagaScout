@@ -244,6 +244,9 @@ class GeneticClustering:
         groups = []
         processed = set()
 
+        # Convert shared_matches to sets for O(1) membership lookups
+        shared_matches_sets = {k: set(v) for k, v in shared_matches.items()}
+
         for match in matches:
             match_id = match.get("id")
             if match_id in processed:
@@ -257,7 +260,7 @@ class GeneticClustering:
             for shared_id in shared:
                 if shared_id not in processed:
                     # Verify triangulation
-                    their_shared = shared_matches.get(shared_id, [])
+                    their_shared = shared_matches_sets.get(shared_id, set())
                     if all(m in their_shared for m in group):
                         group.append(shared_id)
 
