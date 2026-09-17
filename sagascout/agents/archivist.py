@@ -515,6 +515,17 @@ class Archivist(BaseAgent):
 
         # Resolve path to guard against path traversal before writing
         dest = Path(filepath).resolve()
+
+        # Check against configured base directory to prevent writing outside
+        base_dir_str = self.config.get("base_dir", ".")
+        base_dir = Path(base_dir_str).resolve()
+
+        if not dest.is_relative_to(base_dir):
+            return {
+                "status": "error",
+                "error": "Path traversal detected"
+            }
+
         dest.write_text("\n".join(lines), encoding="utf-8")
 
         return {
@@ -550,7 +561,15 @@ class Archivist(BaseAgent):
         Args:
             filepath: Destination file path
         """
-        Path(filepath).write_text(
+        dest = Path(filepath).resolve()
+
+        base_dir_str = self.config.get("base_dir", ".")
+        base_dir = Path(base_dir_str).resolve()
+
+        if not dest.is_relative_to(base_dir):
+            raise ValueError("Path traversal detected")
+
+        dest.write_text(
             json.dumps(self.to_json(), indent=2), encoding="utf-8"
         )
 
