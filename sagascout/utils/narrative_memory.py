@@ -80,6 +80,7 @@ class NarrativeMemory:
             List of matching memories
         """
         results = []
+        search_tags_set = set(tags) if tags else None
 
         for memory in self.memories:
             # Apply filters
@@ -89,7 +90,7 @@ class NarrativeMemory:
             if memory["significance"] < min_significance:
                 continue
             
-            if tags and not any(tag in memory["tags"] for tag in tags):
+            if search_tags_set and search_tags_set.isdisjoint(memory["tags"]):
                 continue
             
             if query:
