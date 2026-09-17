@@ -56,8 +56,10 @@ _diplomat = Diplomat()
 # Generic request/response models
 # ---------------------------------------------------------------------------
 
+
 class AgentRequest(BaseModel):
     """Generic wrapper that forwards arbitrary JSON to an agent's process()."""
+
     payload: Dict[str, Any]
 
 
@@ -69,6 +71,7 @@ class AgentResponse(BaseModel):
 # Health
 # ---------------------------------------------------------------------------
 
+
 @app.get("/health", tags=["system"])
 def health() -> Dict[str, str]:
     """Return API liveness status."""
@@ -78,6 +81,7 @@ def health() -> Dict[str, str]:
 # ---------------------------------------------------------------------------
 # Scout endpoints
 # ---------------------------------------------------------------------------
+
 
 @app.post("/scout/analyze", tags=["scout"], response_model=AgentResponse)
 def scout_analyze(request: AgentRequest) -> AgentResponse:
@@ -105,6 +109,7 @@ def scout_analyze(request: AgentRequest) -> AgentResponse:
 # ---------------------------------------------------------------------------
 # Archivist endpoints
 # ---------------------------------------------------------------------------
+
 
 def _archivist_action(action: str, data: Dict[str, Any]) -> Dict[str, Any]:
     return _archivist.process({"action": action, "data": data})
@@ -150,49 +155,44 @@ def archivist_query(request: AgentRequest) -> AgentResponse:
 # Oracle endpoints
 # ---------------------------------------------------------------------------
 
-@app.post("/oracle/research", tags=["oracle"], response_model=AgentResponse)
-def oracle_research(request: AgentRequest) -> AgentResponse:
-    """Conduct multilingual genealogical research."""
+
+def _oracle_action(action: str, data: Dict[str, Any]) -> AgentResponse:
+    """Helper to process Oracle actions with exception handling."""
     try:
-        payload = {"action": "research", **request.payload}
+        payload = {"action": action, **data}
         return AgentResponse(result=_oracle.process(payload))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/oracle/research", tags=["oracle"], response_model=AgentResponse)
+def oracle_research(request: AgentRequest) -> AgentResponse:
+    """Conduct multilingual genealogical research."""
+    return _oracle_action("research", request.payload)
 
 
 @app.post("/oracle/extract", tags=["oracle"], response_model=AgentResponse)
 def oracle_extract(request: AgentRequest) -> AgentResponse:
     """Extract data from a genealogical document."""
-    try:
-        payload = {"action": "extract", **request.payload}
-        return AgentResponse(result=_oracle.process(payload))
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return _oracle_action("extract", request.payload)
 
 
 @app.post("/oracle/translate", tags=["oracle"], response_model=AgentResponse)
 def oracle_translate(request: AgentRequest) -> AgentResponse:
     """Translate a query into multiple languages."""
-    try:
-        payload = {"action": "translate", **request.payload}
-        return AgentResponse(result=_oracle.process(payload))
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return _oracle_action("translate", request.payload)
 
 
 @app.post("/oracle/search_archives", tags=["oracle"], response_model=AgentResponse)
 def oracle_search_archives(request: AgentRequest) -> AgentResponse:
     """Search genealogical archives across countries."""
-    try:
-        payload = {"action": "search_archives", **request.payload}
-        return AgentResponse(result=_oracle.process(payload))
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return _oracle_action("search_archives", request.payload)
 
 
 # ---------------------------------------------------------------------------
 # Diplomat endpoints
 # ---------------------------------------------------------------------------
+
 
 @app.post("/diplomat/draft", tags=["diplomat"], response_model=AgentResponse)
 def diplomat_draft(request: AgentRequest) -> AgentResponse:
