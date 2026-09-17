@@ -157,19 +157,19 @@ class NarrativeMemory:
         content_str = str(memory["content"]).lower()
         
         # DNA-related tags
-        if any(word in content_str for word in ["dna", "match", "centimorgans"]):
+        if "dna" in content_str or "match" in content_str or "centimorgans" in content_str:
             memory["tags"].append("dna")
         
         # Research tags
-        if any(word in content_str for word in ["research", "archive", "document"]):
+        if "research" in content_str or "archive" in content_str or "document" in content_str:
             memory["tags"].append("research")
         
         # Communication tags
-        if any(word in content_str for word in ["message", "contact", "outreach"]):
+        if "message" in content_str or "contact" in content_str or "outreach" in content_str:
             memory["tags"].append("communication")
         
         # Discovery tags
-        if any(word in content_str for word in ["found", "discovered", "identified"]):
+        if "found" in content_str or "discovered" in content_str or "identified" in content_str:
             memory["tags"].append("discovery")
 
     def _build_narrative_thread(self, memory_id: str,
