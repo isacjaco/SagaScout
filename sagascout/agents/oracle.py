@@ -2,7 +2,7 @@
 
 import logging
 import time
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from sagascout.core.base_agent import BaseAgent
 
 logger = logging.getLogger(__name__)
