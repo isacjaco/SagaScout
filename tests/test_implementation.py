@@ -630,6 +630,9 @@ def test_cli_diplomat_draft(capsys):
 def test_api_unauthorized():
     """Test that protected endpoints return 403 without API key."""
     from fastapi.testclient import TestClient
+    import os
+
+    os.environ["SAGASCOUT_API_KEY"] = "dummykey"
     from sagascout.api import app
 
     client = TestClient(app)
@@ -655,12 +658,15 @@ def test_api_health():
 def test_api_scout_analyze():
     """Test /scout/analyze endpoint."""
     from fastapi.testclient import TestClient
+    import os
+
+    os.environ["SAGASCOUT_API_KEY"] = "dummykey"
     from sagascout.api import app
 
     client = TestClient(app)
     response = client.post(
         "/scout/analyze",
-        headers={"X-API-Key": "test-api-key"},
+        headers={"X-API-Key": "dummykey"},
         json={
             "payload": {
                 "matches": [{"id": "m1", "shared_cm": 850, "segments": 15}],
@@ -676,12 +682,15 @@ def test_api_scout_analyze():
 def test_api_oracle_research():
     """Test /oracle/research endpoint."""
     from fastapi.testclient import TestClient
+    import os
+
+    os.environ["SAGASCOUT_API_KEY"] = "dummykey"
     from sagascout.api import app
 
     client = TestClient(app)
     response = client.post(
         "/oracle/research",
-        headers={"X-API-Key": "test-api-key"},
+        headers={"X-API-Key": "dummykey"},
         json={"payload": {"query": "Jones family", "languages": ["en"]}},
     )
     assert response.status_code == 200
@@ -691,12 +700,15 @@ def test_api_oracle_research():
 def test_api_diplomat_draft():
     """Test /diplomat/draft endpoint."""
     from fastapi.testclient import TestClient
+    import os
+
+    os.environ["SAGASCOUT_API_KEY"] = "dummykey"
     from sagascout.api import app
 
     client = TestClient(app)
     response = client.post(
         "/diplomat/draft",
-        headers={"X-API-Key": "test-api-key"},
+        headers={"X-API-Key": "dummykey"},
         json={
             "payload": {
                 "recipient": {"id": "r1", "country": "US"},
@@ -712,12 +724,15 @@ def test_api_diplomat_draft():
 def test_api_archivist_parse():
     """Test /archivist/parse endpoint."""
     from fastapi.testclient import TestClient
+    import os
+
+    os.environ["SAGASCOUT_API_KEY"] = "dummykey"
     from sagascout.api import app
 
     client = TestClient(app)
     response = client.post(
         "/archivist/parse",
-        headers={"X-API-Key": "test-api-key"},
+        headers={"X-API-Key": "dummykey"},
         json={
             "payload": {
                 "individuals": [{"id": "p1", "name": "Alice"}],

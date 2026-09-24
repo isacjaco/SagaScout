@@ -67,7 +67,10 @@ def get_api_key(api_key_header: str = Security(api_key_header)) -> str:
     """Validate the API Key."""
     # In a real app, this should be fetched from environment variables or a secure vault
     # Defaulting to a test key for development/testing if not set
-    expected_api_key = os.environ.get("SAGASCOUT_API_KEY", "test-api-key")
+    expected_api_key = os.environ.get("SAGASCOUT_API_KEY")
+    if not expected_api_key:
+        # For tests only
+        raise HTTPException(status_code=500, detail="API Key not configured")
     if api_key_header != expected_api_key:
         raise HTTPException(status_code=403, detail="Could not validate API Key")
     return api_key_header
