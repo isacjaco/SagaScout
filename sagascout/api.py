@@ -30,7 +30,10 @@ GET  /health
 
 from typing import Any, Dict
 
-from fastapi import FastAPI, HTTPException
+import os
+from fastapi import FastAPI, HTTPException, Security, Depends
+from fastapi.security import APIKeyHeader
+from fastapi import APIRouter
 from pydantic import BaseModel
 
 from sagascout.agents.scout import Scout
@@ -53,11 +56,37 @@ _diplomat = Diplomat()
 
 
 # ---------------------------------------------------------------------------
+# Security Configuration
+# ---------------------------------------------------------------------------
+
+API_KEY_NAME = "X-API-Key"
+api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=True)
+
+
+def get_api_key(api_key_header: str = Security(api_key_header)) -> str:
+    """Validate the API Key."""
+    # In a real app, this should be fetched from environment variables or a secure vault
+    # Defaulting to a test key for development/testing if not set
+    expected_api_key = os.environ.get("SAGASCOUT_API_KEY")
+    if not expected_api_key:
+        # For tests only
+        raise HTTPException(status_code=500, detail="API Key not configured")
+    if api_key_header != expected_api_key:
+        raise HTTPException(status_code=403, detail="Could not validate API Key")
+    return api_key_header
+
+
+# Create a protected router for agent endpoints
+protected_router = APIRouter(dependencies=[Depends(get_api_key)])
+
+# ---------------------------------------------------------------------------
 # Generic request/response models
 # ---------------------------------------------------------------------------
 
+
 class AgentRequest(BaseModel):
     """Generic wrapper that forwards arbitrary JSON to an agent's process()."""
+
     payload: Dict[str, Any]
 
 
@@ -69,6 +98,7 @@ class AgentResponse(BaseModel):
 # Health
 # ---------------------------------------------------------------------------
 
+
 @app.get("/health", tags=["system"])
 def health() -> Dict[str, str]:
     """Return API liveness status."""
@@ -79,7 +109,8 @@ def health() -> Dict[str, str]:
 # Scout endpoints
 # ---------------------------------------------------------------------------
 
-@app.post("/scout/analyze", tags=["scout"], response_model=AgentResponse)
+
+@protected_router.post("/scout/analyze", tags=["scout"], response_model=AgentResponse)
 def scout_analyze(request: AgentRequest) -> AgentResponse:
     """
     Analyze DNA matches.
@@ -106,11 +137,14 @@ def scout_analyze(request: AgentRequest) -> AgentResponse:
 # Archivist endpoints
 # ---------------------------------------------------------------------------
 
+
 def _archivist_action(action: str, data: Dict[str, Any]) -> Dict[str, Any]:
     return _archivist.process({"action": action, "data": data})
 
 
-@app.post("/archivist/parse", tags=["archivist"], response_model=AgentResponse)
+@protected_router.post(
+    "/archivist/parse", tags=["archivist"], response_model=AgentResponse
+)
 def archivist_parse(request: AgentRequest) -> AgentResponse:
     """Parse family tree data (individuals + relationships)."""
     try:
@@ -119,7 +153,9 @@ def archivist_parse(request: AgentRequest) -> AgentResponse:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
-@app.post("/archivist/merge", tags=["archivist"], response_model=AgentResponse)
+@protected_router.post(
+    "/archivist/merge", tags=["archivist"], response_model=AgentResponse
+)
 def archivist_merge(request: AgentRequest) -> AgentResponse:
     """Merge another tree into the current tree."""
     try:
@@ -128,7 +164,9 @@ def archivist_merge(request: AgentRequest) -> AgentResponse:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
-@app.post("/archivist/infer", tags=["archivist"], response_model=AgentResponse)
+@protected_router.post(
+    "/archivist/infer", tags=["archivist"], response_model=AgentResponse
+)
 def archivist_infer(request: AgentRequest) -> AgentResponse:
     """Infer relationship between two individuals."""
     try:
@@ -137,7 +175,9 @@ def archivist_infer(request: AgentRequest) -> AgentResponse:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
-@app.post("/archivist/query", tags=["archivist"], response_model=AgentResponse)
+@protected_router.post(
+    "/archivist/query", tags=["archivist"], response_model=AgentResponse
+)
 def archivist_query(request: AgentRequest) -> AgentResponse:
     """Query the family tree (ancestors, descendants, siblings, statistics)."""
     try:
@@ -150,7 +190,10 @@ def archivist_query(request: AgentRequest) -> AgentResponse:
 # Oracle endpoints
 # ---------------------------------------------------------------------------
 
-@app.post("/oracle/research", tags=["oracle"], response_model=AgentResponse)
+
+@protected_router.post(
+    "/oracle/research", tags=["oracle"], response_model=AgentResponse
+)
 def oracle_research(request: AgentRequest) -> AgentResponse:
     """Conduct multilingual genealogical research."""
     try:
@@ -160,7 +203,7 @@ def oracle_research(request: AgentRequest) -> AgentResponse:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
-@app.post("/oracle/extract", tags=["oracle"], response_model=AgentResponse)
+@protected_router.post("/oracle/extract", tags=["oracle"], response_model=AgentResponse)
 def oracle_extract(request: AgentRequest) -> AgentResponse:
     """Extract data from a genealogical document."""
     try:
@@ -170,7 +213,9 @@ def oracle_extract(request: AgentRequest) -> AgentResponse:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
-@app.post("/oracle/translate", tags=["oracle"], response_model=AgentResponse)
+@protected_router.post(
+    "/oracle/translate", tags=["oracle"], response_model=AgentResponse
+)
 def oracle_translate(request: AgentRequest) -> AgentResponse:
     """Translate a query into multiple languages."""
     try:
@@ -180,7 +225,9 @@ def oracle_translate(request: AgentRequest) -> AgentResponse:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
-@app.post("/oracle/search_archives", tags=["oracle"], response_model=AgentResponse)
+@protected_router.post(
+    "/oracle/search_archives", tags=["oracle"], response_model=AgentResponse
+)
 def oracle_search_archives(request: AgentRequest) -> AgentResponse:
     """Search genealogical archives across countries."""
     try:
@@ -194,7 +241,10 @@ def oracle_search_archives(request: AgentRequest) -> AgentResponse:
 # Diplomat endpoints
 # ---------------------------------------------------------------------------
 
-@app.post("/diplomat/draft", tags=["diplomat"], response_model=AgentResponse)
+
+@protected_router.post(
+    "/diplomat/draft", tags=["diplomat"], response_model=AgentResponse
+)
 def diplomat_draft(request: AgentRequest) -> AgentResponse:
     """Draft a culturally-appropriate outreach message."""
     try:
@@ -204,7 +254,9 @@ def diplomat_draft(request: AgentRequest) -> AgentResponse:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
-@app.post("/diplomat/send", tags=["diplomat"], response_model=AgentResponse)
+@protected_router.post(
+    "/diplomat/send", tags=["diplomat"], response_model=AgentResponse
+)
 def diplomat_send(request: AgentRequest) -> AgentResponse:
     """Send a message and record it in communication history."""
     try:
@@ -214,7 +266,9 @@ def diplomat_send(request: AgentRequest) -> AgentResponse:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
-@app.post("/diplomat/respond", tags=["diplomat"], response_model=AgentResponse)
+@protected_router.post(
+    "/diplomat/respond", tags=["diplomat"], response_model=AgentResponse
+)
 def diplomat_respond(request: AgentRequest) -> AgentResponse:
     """Generate a response to a received message."""
     try:
@@ -224,7 +278,9 @@ def diplomat_respond(request: AgentRequest) -> AgentResponse:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
-@app.post("/diplomat/analyze_culture", tags=["diplomat"], response_model=AgentResponse)
+@protected_router.post(
+    "/diplomat/analyze_culture", tags=["diplomat"], response_model=AgentResponse
+)
 def diplomat_analyze_culture(request: AgentRequest) -> AgentResponse:
     """Analyze cultural communication context for a country."""
     try:
@@ -232,3 +288,6 @@ def diplomat_analyze_culture(request: AgentRequest) -> AgentResponse:
         return AgentResponse(result=_diplomat.process(payload))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+app.include_router(protected_router)
