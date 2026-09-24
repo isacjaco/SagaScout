@@ -515,6 +515,11 @@ class Archivist(BaseAgent):
 
         # Resolve path to guard against path traversal before writing
         dest = Path(filepath).resolve()
+        base_dir = Path(self.config.get("export_dir", Path.cwd())).resolve()
+        try:
+            dest.relative_to(base_dir)
+        except ValueError:
+            raise ValueError("Invalid filepath: Path traversal detected")
         dest.write_text("\n".join(lines), encoding="utf-8")
 
         return {
