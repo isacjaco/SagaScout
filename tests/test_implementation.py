@@ -644,5 +644,25 @@ def test_api_archivist_parse():
     assert response.json()["result"]["status"] == "success"
 
 
+def test_api_scout_analyze_exception(monkeypatch):
+    """Test that /scout/analyze handles exceptions correctly."""
+    from fastapi.testclient import TestClient
+    from sagascout.api import app, _scout
+    client = TestClient(app)
+
+    def mock_process(*args, **kwargs):
+        raise ValueError("Simulated processing error")
+
+    monkeypatch.setattr(_scout, "process", mock_process)
+
+    response = client.post("/scout/analyze", json={
+        "payload": {
+            "matches": [{"id": "m1", "shared_cm": 850, "segments": 15}],
+            "threshold_cm": 20,
+        }
+    })
+    assert response.status_code == 500
+    assert response.json()["detail"] == "Simulated processing error"
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
