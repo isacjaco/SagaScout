@@ -367,7 +367,7 @@ def test_archivist_serialization_roundtrip():
 
 def test_archivist_save_load_file(tmp_path):
     """Test Archivist save_to_file / load_from_file."""
-    archivist = Archivist(name="TestArchivist")
+    archivist = Archivist(name="TestArchivist", config={"workspace_dir": str(tmp_path)})
     archivist.process({
         "action": "parse",
         "data": {
@@ -378,13 +378,13 @@ def test_archivist_save_load_file(tmp_path):
     filepath = str(tmp_path / "archivist.json")
     archivist.save_to_file(filepath)
 
-    loaded = Archivist.load_from_file(filepath, name="Loaded")
+    loaded = Archivist.load_from_file(filepath, name="Loaded", config={"workspace_dir": str(tmp_path)})
     assert "x1" in loaded.individuals
 
 
 def test_archivist_gedcom_export(tmp_path):
     """Test GEDCOM export produces a valid-looking .ged file."""
-    archivist = Archivist(name="TestArchivist")
+    archivist = Archivist(name="TestArchivist", config={"workspace_dir": str(tmp_path)})
     archivist.process({
         "action": "parse",
         "data": {
@@ -405,9 +405,9 @@ def test_archivist_gedcom_export(tmp_path):
     assert "0 TRLR" in content
 
 
-def test_archivist_gedcom_parse_missing_file():
+def test_archivist_gedcom_parse_missing_file(tmp_path):
     """Test parse_gedcom with missing file returns error."""
-    archivist = Archivist(name="TestArchivist")
+    archivist = Archivist(name="TestArchivist", config={"workspace_dir": str(tmp_path)})
     result = archivist.parse_gedcom("/nonexistent/tree.ged")
     assert "error" in result
 
