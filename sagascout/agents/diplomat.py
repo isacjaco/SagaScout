@@ -9,7 +9,7 @@ from sagascout.core.base_agent import BaseAgent
 class Diplomat(BaseAgent):
     """
     Diplomat agent specializes in outreach and cross-cultural communication.
-    
+
     Capabilities:
     - Initial outreach and communication with DNA matches
     - Cross-border, cross-cultural reasoning
@@ -43,7 +43,7 @@ class Diplomat(BaseAgent):
             Dictionary with processing results
         """
         action = input_data.get("action")
-        
+
         if action == "draft":
             result = self.draft_message(input_data)
         elif action == "send":
@@ -56,11 +56,13 @@ class Diplomat(BaseAgent):
             result = {"error": f"Unknown action: {action}"}
 
         # Remember this communication
-        self.remember({
-            "event": "communication",
-            "action": action,
-            "timestamp": input_data.get("timestamp", "unknown"),
-        })
+        self.remember(
+            {
+                "event": "communication",
+                "action": action,
+                "timestamp": input_data.get("timestamp", "unknown"),
+            }
+        )
 
         return result
 
@@ -91,13 +93,10 @@ class Diplomat(BaseAgent):
         # Try LLM drafting if configured; fall back to templates
         if self.config.get("llm_api_key"):
             message = self._compose_message_with_llm(
-                purpose, language, context, cultural_notes,
-                recipient, request
+                request, cultural_notes
             ) or self._compose_message(purpose, language, context, cultural_notes)
         else:
-            message = self._compose_message(
-                purpose, language, context, cultural_notes
-            )
+            message = self._compose_message(purpose, language, context, cultural_notes)
 
         draft = {
             "recipient": recipient,
@@ -112,9 +111,7 @@ class Diplomat(BaseAgent):
         return {
             "status": "success",
             "draft": draft,
-            "recommendations": self._generate_recommendations(
-                draft, cultural_notes
-            ),
+            "recommendations": self._generate_recommendations(draft, cultural_notes),
         }
 
     def draft_with_llm(
@@ -144,9 +141,7 @@ class Diplomat(BaseAgent):
 
         message = None
         if llm_client is not None:
-            message = self._call_llm_client(
-                llm_client, purpose, language, context, cultural_notes, recipient
-            )
+            message = self._call_llm_client(llm_client, request, cultural_notes)
         if message is None:
             message = self._compose_message(purpose, language, context, cultural_notes)
 
@@ -196,7 +191,7 @@ class Diplomat(BaseAgent):
                 "messages_received": 0,
                 "last_contact": None,
             }
-        
+
         self.contacts[recipient_id]["messages_sent"] += 1
         self.contacts[recipient_id]["last_contact"] = communication["timestamp"]
 
@@ -223,9 +218,7 @@ class Diplomat(BaseAgent):
         analysis = self._analyze_message(original_message)
 
         # Generate response
-        response = self._generate_response(
-            original_message, analysis, response_tone
-        )
+        response = self._generate_response(original_message, analysis, response_tone)
 
         return {
             "status": "success",
@@ -254,7 +247,7 @@ class Diplomat(BaseAgent):
             }
 
         profile = self.cultural_profiles[country]
-        
+
         analysis = {
             "country": country,
             "communication_style": profile.get("communication_style"),
@@ -317,7 +310,7 @@ class Diplomat(BaseAgent):
         }
 
         template = copy.deepcopy(templates.get(purpose, templates["initial_contact"]))
-        
+
         # Adjust for cultural context
         if cultural_notes.get("formality_level") == "high":
             template["body"] = template["body"].replace("Hello", "Dear Sir/Madam")
@@ -332,22 +325,20 @@ class Diplomat(BaseAgent):
 
         # Check formality
         if cultural_notes.get("formality_level") == "high":
-            recommendations.append(
-                "Consider using more formal language and titles"
-            )
+            recommendations.append("Consider using more formal language and titles")
 
         # Check length
         if cultural_notes.get("communication_style") == "direct":
-            recommendations.append(
-                "Keep message concise and to the point"
-            )
+            recommendations.append("Keep message concise and to the point")
         elif cultural_notes.get("communication_style") == "indirect":
             recommendations.append(
                 "Consider adding more context and background information"
             )
 
         # General recommendations
-        recommendations.append("Include specific connection details (shared ancestor, DNA match)")
+        recommendations.append(
+            "Include specific connection details (shared ancestor, DNA match)"
+        )
         recommendations.append("Be respectful of privacy and cultural sensitivities")
 
         return recommendations
@@ -355,7 +346,7 @@ class Diplomat(BaseAgent):
     def _analyze_message(self, message: Dict[str, Any]) -> Dict[str, Any]:
         """Analyze a received message."""
         text = message.get("text", "")
-        
+
         # Analyze tone
         tone = "neutral"
         if any(word in text.lower() for word in ["excited", "wonderful", "great"]):
@@ -486,14 +477,11 @@ class Diplomat(BaseAgent):
             },
         }
 
-    def get_communication_history(
-        self, contact_id: str = None
-    ) -> List[Dict[str, Any]]:
+    def get_communication_history(self, contact_id: str = None) -> List[Dict[str, Any]]:
         """Get communication history, optionally filtered by contact."""
         if contact_id:
             return [
-                c for c in self.communications
-                if c.get("recipient_id") == contact_id
+                c for c in self.communications if c.get("recipient_id") == contact_id
             ]
         return self.communications
 
@@ -507,12 +495,8 @@ class Diplomat(BaseAgent):
 
     def _compose_message_with_llm(
         self,
-        purpose: str,
-        language: str,
-        context: Dict[str, Any],
-        cultural_notes: Dict[str, Any],
-        recipient: Dict[str, Any],
         request: Dict[str, Any],
+        cultural_notes: Dict[str, Any],
     ) -> Optional[Dict[str, Any]]:
         """
         Compose a message using an OpenAI-compatible API configured via
@@ -522,21 +506,17 @@ class Diplomat(BaseAgent):
         """
         try:
             import openai
+
             client = openai.OpenAI(api_key=self.config["llm_api_key"])
-            return self._call_llm_client(
-                client, purpose, language, context, cultural_notes, recipient
-            )
+            return self._call_llm_client(client, request, cultural_notes)
         except Exception:
             return None
 
     def _call_llm_client(
         self,
         client: Any,
-        purpose: str,
-        language: str,
-        context: Dict[str, Any],
+        request: Dict[str, Any],
         cultural_notes: Dict[str, Any],
-        recipient: Dict[str, Any],
     ) -> Optional[Dict[str, Any]]:
         """
         Call an OpenAI-compatible ``chat.completions.create`` method to draft
@@ -545,6 +525,10 @@ class Diplomat(BaseAgent):
         Returns a message dict on success, ``None`` on any failure.
         """
         model = self.config.get("llm_model", "gpt-3.5-turbo")
+        purpose = request.get("purpose", "initial_contact")
+        language = request.get("language", "en")
+        context = request.get("context", {})
+        recipient = request.get("recipient", {})
         formality = cultural_notes.get("formality_level", "medium")
         comm_style = cultural_notes.get("communication_style", "direct")
         system_prompt = (
