@@ -196,12 +196,17 @@ class TestLoadTree:
         ged_file.write_text(SAMPLE_GEDCOM, encoding="utf-8")
         result = load_tree(str(ged_file))
         assert result["source"] == "gedcom"
+        assert len(result["individuals"]) == 4
+        assert len(result["relationships"]) == 4
+        assert len(result["family_units"]) == 2
 
     def test_json_extension_routes_to_json(self, tmp_path):
         json_file = tmp_path / "family.json"
         json_file.write_text(SAMPLE_JSON_FLAT, encoding="utf-8")
         result = load_tree(str(json_file))
         assert result["source"] == "json"
+        assert len(result["individuals"]) == 4
+        assert len(result["relationships"]) == 3
 
     def test_unknown_extension_raises(self, tmp_path):
         csv_file = tmp_path / "family.csv"
