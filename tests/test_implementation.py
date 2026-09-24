@@ -450,6 +450,7 @@ def test_narrative_memory_save_load_file(tmp_path):
 
 def test_persistence_scout(tmp_path):
     """Test save_agent_state / load_agent_state for Scout."""
+    os.environ["SAGASCOUT_DATA_DIR"] = str(tmp_path)
     scout = Scout(name="MyScout")
     scout.matches = [{"id": "m1", "shared_cm": 500}]
     filepath = str(tmp_path / "scout_state.json")
@@ -461,6 +462,7 @@ def test_persistence_scout(tmp_path):
 
 def test_persistence_archivist(tmp_path):
     """Test save_agent_state / load_agent_state for Archivist."""
+    os.environ["SAGASCOUT_DATA_DIR"] = str(tmp_path)
     archivist = Archivist(name="MyArchivist")
     archivist.process({
         "action": "parse",
@@ -478,6 +480,7 @@ def test_persistence_archivist(tmp_path):
 
 def test_persistence_narrative_memory(tmp_path):
     """Test save_agent_state / load_agent_state for NarrativeMemory."""
+    os.environ["SAGASCOUT_DATA_DIR"] = str(tmp_path)
     nm = NarrativeMemory()
     nm.store_memory("test", {"data": "x"}, significance=0.8)
     filepath = str(tmp_path / "nm_state.json")
@@ -486,14 +489,16 @@ def test_persistence_narrative_memory(tmp_path):
     assert len(restored.memories) == 1
 
 
-def test_persistence_unsupported_type():
+def test_persistence_unsupported_type(tmp_path):
     """Test save_agent_state raises TypeError for unsupported types."""
+    os.environ["SAGASCOUT_DATA_DIR"] = str(tmp_path)
     with pytest.raises(TypeError):
-        save_agent_state(object(), "/tmp/test.json")
+        save_agent_state(object(), str(tmp_path / "test.json"))
 
 
 def test_persistence_load_unsupported_class(tmp_path):
     """Test load_agent_state raises TypeError for unsupported classes."""
+    os.environ["SAGASCOUT_DATA_DIR"] = str(tmp_path)
     filepath = str(tmp_path / "dummy.json")
     with open(filepath, "w") as f:
         json.dump({}, f)

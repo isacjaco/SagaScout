@@ -6,6 +6,7 @@ and restore Scout, Archivist, and NarrativeMemory instances.
 """
 
 import json
+import os
 from pathlib import Path
 from typing import Any, Dict, Type
 
@@ -43,7 +44,15 @@ def save_agent_state(agent: Any, filepath: str) -> None:
             "Supported types: Scout, Archivist, NarrativeMemory"
         )
 
-    Path(filepath).write_text(json.dumps(state, indent=2), encoding="utf-8")
+    base_dir = Path(os.environ.get("SAGASCOUT_DATA_DIR", ".")).resolve()
+    target_path = Path(filepath).resolve()
+    if not target_path.is_relative_to(base_dir):
+        raise ValueError(
+            f"Path traversal detected: {filepath} "
+            f"is not within allowed directory {base_dir}"
+        )
+
+    target_path.write_text(json.dumps(state, indent=2), encoding="utf-8")
 
 
 def load_agent_state(agent_class: Type, filepath: str) -> Any:
@@ -55,7 +64,7 @@ def load_agent_state(agent_class: Type, filepath: str) -> Any:
             :class:`~sagascout.agents.scout.Scout`,
             :class:`~sagascout.agents.archivist.Archivist`, or
             :class:`~sagascout.utils.narrative_memory.NarrativeMemory`.
-        filepath: Source file path previously written by :func:`save_agent_state`
+        filepath: Source file path written by :func:`save_agent_state`
 
     Returns:
         Restored instance of *agent_class*
@@ -68,9 +77,15 @@ def load_agent_state(agent_class: Type, filepath: str) -> Any:
     from sagascout.agents.archivist import Archivist
     from sagascout.utils.narrative_memory import NarrativeMemory
 
-    data: Dict[str, Any] = json.loads(
-        Path(filepath).read_text(encoding="utf-8")
-    )
+    base_dir = Path(os.environ.get("SAGASCOUT_DATA_DIR", ".")).resolve()
+    target_path = Path(filepath).resolve()
+    if not target_path.is_relative_to(base_dir):
+        raise ValueError(
+            f"Path traversal detected: {filepath} "
+            f"is not within allowed directory {base_dir}"
+        )
+
+    data: Dict[str, Any] = json.loads(target_path.read_text(encoding="utf-8"))
 
     if agent_class is Scout:
         return Scout.from_json(
