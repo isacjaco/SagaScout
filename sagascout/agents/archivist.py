@@ -10,7 +10,7 @@ from sagascout.core.base_agent import BaseAgent
 class Archivist(BaseAgent):
     """
     Archivist agent specializes in family tree operations.
-    
+
     Capabilities:
     - Parse family tree data from various formats
     - Merge multiple family trees
@@ -52,9 +52,7 @@ class Archivist(BaseAgent):
         elif action == "merge":
             result = self.merge_trees(data)
         elif action == "infer":
-            result = self.infer_relationship(
-                data.get("person1"), data.get("person2")
-            )
+            result = self.infer_relationship(data.get("person1"), data.get("person2"))
         elif action == "query":
             result = self.query_tree(data)
         elif action == "parse_gedcom":
@@ -67,12 +65,14 @@ class Archivist(BaseAgent):
             result = {"error": f"Unknown action: {action}"}
 
         # Remember this operation
-        self.remember({
-            "event": "tree_operation",
-            "action": action,
-            "nodes": self.tree.number_of_nodes(),
-            "edges": self.tree.number_of_edges(),
-        })
+        self.remember(
+            {
+                "event": "tree_operation",
+                "action": action,
+                "nodes": self.tree.number_of_nodes(),
+                "edges": self.tree.number_of_edges(),
+            }
+        )
 
         return result
 
@@ -100,7 +100,7 @@ class Archivist(BaseAgent):
             parent_id = rel.get("parent")
             child_id = rel.get("child")
             rel_type = rel.get("type", "parent")
-            
+
             if parent_id and child_id:
                 self.tree.add_edge(parent_id, child_id, relationship=rel_type)
 
@@ -124,7 +124,7 @@ class Archivist(BaseAgent):
         """
         other_individuals = merge_data.get("individuals", [])
         other_relationships = merge_data.get("relationships", [])
-        
+
         conflicts = []
         merged_count = 0
         new_count = 0
@@ -132,7 +132,7 @@ class Archivist(BaseAgent):
         # Merge individuals
         for person in other_individuals:
             person_id = person.get("id")
-            
+
             if person_id in self.individuals:
                 # Check for conflicts
                 existing = self.individuals[person_id]
@@ -153,7 +153,7 @@ class Archivist(BaseAgent):
         for rel in other_relationships:
             parent_id = rel.get("parent")
             child_id = rel.get("child")
-            
+
             if parent_id and child_id:
                 if not self.tree.has_edge(parent_id, child_id):
                     self.tree.add_edge(
@@ -169,9 +169,7 @@ class Archivist(BaseAgent):
             "total_edges": self.tree.number_of_edges(),
         }
 
-    def infer_relationship(
-        self, person1_id: str, person2_id: str
-    ) -> Dict[str, Any]:
+    def infer_relationship(self, person1_id: str, person2_id: str) -> Dict[str, Any]:
         """
         Infer relationship between two individuals.
 
@@ -187,13 +185,11 @@ class Archivist(BaseAgent):
 
         try:
             # Find shortest path
-            path = nx.shortest_path(
-                self.tree.to_undirected(), person1_id, person2_id
-            )
-            
+            path = nx.shortest_path(self.tree.to_undirected(), person1_id, person2_id)
+
             # Analyze path to determine relationship
             relationship = self._analyze_path(path)
-            
+
             return {
                 "person1": person1_id,
                 "person2": person2_id,
@@ -312,7 +308,7 @@ class Archivist(BaseAgent):
 
         # Find root nodes (nodes with no predecessors)
         roots = [n for n in self.tree.nodes() if self.tree.in_degree(n) == 0]
-        
+
         if not roots:
             return 0
 
@@ -345,7 +341,7 @@ class Archivist(BaseAgent):
     ) -> Optional[Dict[str, Any]]:
         """Detect conflicts between two person records."""
         conflicts = {}
-        
+
         for key in ["birth_date", "death_date", "name"]:
             if key in existing and key in new:
                 if existing[key] != new[key]:
@@ -366,6 +362,57 @@ class Archivist(BaseAgent):
     # GEDCOM support                                                       #
     # ------------------------------------------------------------------ #
 
+    def _parse_individual_element(
+        self, element: "IndividualElement", id_map: Dict[str, str]
+    ) -> int:
+        """Parse an individual element and add to the tree."""
+        pointer = element.get_pointer()
+        # Use pointer as ID (strip @)
+        person_id = pointer.strip("@")
+        first, last = element.get_name()
+        name = f"{first} {last}".strip() or person_id
+        birth_data = element.get_birth_data()
+        death_data = element.get_death_data()
+        person = {
+            "id": person_id,
+            "name": name,
+        }
+        if birth_data:
+            person["birth_date"] = birth_data[0] or None
+            person["birth_place"] = birth_data[1] or None
+        if death_data:
+            person["death_date"] = death_data[0] or None
+        self.individuals[person_id] = person
+        self.tree.add_node(person_id, **person)
+        id_map[pointer] = person_id
+        return 1
+
+    def _parse_family_element(
+        self, element: "FamilyElement", id_map: Dict[str, str]
+    ) -> int:
+        """Parse a family element and add relationships to the tree."""
+        relationships_added = 0
+        children_ids = []
+        parent_ids = []
+
+        for child_element in element.get_child_elements():
+            tag = child_element.get_tag()
+            ptr = child_element.get_value()
+            if tag == "CHIL":
+                children_ids.append(id_map.get(ptr))
+            elif tag in ("HUSB", "WIFE"):
+                pid = id_map.get(ptr)
+                if pid:
+                    parent_ids.append(pid)
+
+        for parent_id in parent_ids:
+            for child_id in children_ids:
+                if child_id and not self.tree.has_edge(parent_id, child_id):
+                    self.tree.add_edge(parent_id, child_id, relationship="parent")
+                    relationships_added += 1
+
+        return relationships_added
+
     def parse_gedcom(self, filepath: str) -> Dict[str, Any]:
         """
         Parse a GEDCOM (.ged) file and load individuals and relationships.
@@ -383,7 +430,9 @@ class Archivist(BaseAgent):
             from gedcom.element.individual import IndividualElement
             from gedcom.element.family import FamilyElement
         except ImportError:
-            return {"error": "python-gedcom is not installed. Run: pip install python-gedcom"}
+            return {
+                "error": "python-gedcom is not installed. Run: pip install python-gedcom"
+            }
 
         # Resolve and validate path before use to guard against path traversal
         path = Path(filepath).resolve()
@@ -401,55 +450,12 @@ class Archivist(BaseAgent):
         id_map: Dict[str, str] = {}  # gedcom pointer -> our id
         for element in root_child_elements:
             if isinstance(element, IndividualElement):
-                pointer = element.get_pointer()
-                # Use pointer as ID (strip @)
-                person_id = pointer.strip("@")
-                (first, last) = element.get_name()
-                name = f"{first} {last}".strip() or person_id
-                birth_data = element.get_birth_data()
-                death_data = element.get_death_data()
-                person = {
-                    "id": person_id,
-                    "name": name,
-                }
-                if birth_data:
-                    person["birth_date"] = birth_data[0] or None
-                    person["birth_place"] = birth_data[1] or None
-                if death_data:
-                    person["death_date"] = death_data[0] or None
-                self.individuals[person_id] = person
-                self.tree.add_node(person_id, **person)
-                id_map[pointer] = person_id
-                individuals_added += 1
+                individuals_added += self._parse_individual_element(element, id_map)
 
         # Process family relationships
         for element in root_child_elements:
             if isinstance(element, FamilyElement):
-                children_ids = []
-                for child_element in element.get_child_elements():
-                    tag = child_element.get_tag()
-                    ptr = child_element.get_value()
-                    if tag == "CHIL":
-                        children_ids.append(id_map.get(ptr))
-                    elif tag in ("HUSB", "WIFE"):
-                        # Will be used as parent(s)
-                        pass
-
-                # Build parent list for this family
-                parent_ids = []
-                for child_element in element.get_child_elements():
-                    tag = child_element.get_tag()
-                    ptr = child_element.get_value()
-                    if tag in ("HUSB", "WIFE"):
-                        pid = id_map.get(ptr)
-                        if pid:
-                            parent_ids.append(pid)
-
-                for parent_id in parent_ids:
-                    for child_id in children_ids:
-                        if child_id and not self.tree.has_edge(parent_id, child_id):
-                            self.tree.add_edge(parent_id, child_id, relationship="parent")
-                            relationships_added += 1
+                relationships_added += self._parse_family_element(element, id_map)
 
         return {
             "status": "success",
@@ -471,8 +477,13 @@ class Archivist(BaseAgent):
         Returns:
             Dictionary with export results
         """
-        lines = ["0 HEAD", "1 GEDC", "2 VERS 5.5.1", "2 FORM LINEAGE-LINKED",
-                 "1 CHAR UTF-8"]
+        lines = [
+            "0 HEAD",
+            "1 GEDC",
+            "2 VERS 5.5.1",
+            "2 FORM LINEAGE-LINKED",
+            "1 CHAR UTF-8",
+        ]
 
         for person_id, person in self.individuals.items():
             pointer = f"@{person_id}@"
@@ -555,8 +566,12 @@ class Archivist(BaseAgent):
         )
 
     @classmethod
-    def from_json(cls, data: Dict[str, Any], name: str = "Archivist",
-                  config: Dict[str, Any] = None) -> "Archivist":
+    def from_json(
+        cls,
+        data: Dict[str, Any],
+        name: str = "Archivist",
+        config: Dict[str, Any] = None,
+    ) -> "Archivist":
         """
         Restore an Archivist from a previously serialized dictionary.
 
@@ -573,8 +588,9 @@ class Archivist(BaseAgent):
         return archivist
 
     @classmethod
-    def load_from_file(cls, filepath: str, name: str = "Archivist",
-                       config: Dict[str, Any] = None) -> "Archivist":
+    def load_from_file(
+        cls, filepath: str, name: str = "Archivist", config: Dict[str, Any] = None
+    ) -> "Archivist":
         """
         Load an Archivist from a JSON file saved by :meth:`save_to_file`.
 
