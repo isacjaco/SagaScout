@@ -9,8 +9,30 @@ import json
 from pathlib import Path
 from typing import Any, Dict, Type
 
+import os
 
-def save_agent_state(agent: Any, filepath: str) -> None:
+def _get_secure_path(filepath: str, base_dir: str = None) -> Path:
+    if base_dir is None:
+        base_dir = os.environ.get("SAGASCOUT_DATA_DIR", ".")
+
+    base = Path(base_dir).resolve()
+    target = Path(filepath)
+
+    if not target.is_absolute():
+        target = base / target
+
+    target = target.resolve()
+
+    try:
+        target.relative_to(base)
+    except ValueError:
+        raise PermissionError(f"Path traversal attempt: {filepath} is outside {base}")
+
+    return target
+
+
+
+def save_agent_state(agent: Any, filepath: str, base_dir: str = None) -> None:
     """
     Save the state of a Scout, Archivist, or NarrativeMemory to a JSON file.
 
@@ -21,6 +43,7 @@ def save_agent_state(agent: Any, filepath: str) -> None:
     Args:
         agent: Agent or NarrativeMemory instance to serialise
         filepath: Destination file path (created or overwritten)
+        base_dir: Optional base directory to restrict path traversal
 
     Raises:
         TypeError: If the agent type is not supported
@@ -43,10 +66,11 @@ def save_agent_state(agent: Any, filepath: str) -> None:
             "Supported types: Scout, Archivist, NarrativeMemory"
         )
 
-    Path(filepath).write_text(json.dumps(state, indent=2), encoding="utf-8")
+    secure_path = _get_secure_path(filepath, base_dir)
+    secure_path.write_text(json.dumps(state, indent=2), encoding="utf-8")
 
 
-def load_agent_state(agent_class: Type, filepath: str) -> Any:
+def load_agent_state(agent_class: Type, filepath: str, base_dir: str = None) -> Any:
     """
     Restore an agent or NarrativeMemory from a JSON file.
 
@@ -56,6 +80,7 @@ def load_agent_state(agent_class: Type, filepath: str) -> Any:
             :class:`~sagascout.agents.archivist.Archivist`, or
             :class:`~sagascout.utils.narrative_memory.NarrativeMemory`.
         filepath: Source file path previously written by :func:`save_agent_state`
+        base_dir: Optional base directory to restrict path traversal
 
     Returns:
         Restored instance of *agent_class*
@@ -69,7 +94,7 @@ def load_agent_state(agent_class: Type, filepath: str) -> Any:
     from sagascout.utils.narrative_memory import NarrativeMemory
 
     data: Dict[str, Any] = json.loads(
-        Path(filepath).read_text(encoding="utf-8")
+        _get_secure_path(filepath, base_dir).read_text(encoding="utf-8")
     )
 
     if agent_class is Scout:

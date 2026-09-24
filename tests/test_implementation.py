@@ -453,8 +453,8 @@ def test_persistence_scout(tmp_path):
     scout = Scout(name="MyScout")
     scout.matches = [{"id": "m1", "shared_cm": 500}]
     filepath = str(tmp_path / "scout_state.json")
-    save_agent_state(scout, filepath)
-    restored = load_agent_state(Scout, filepath)
+    save_agent_state(scout, filepath, base_dir=str(tmp_path))
+    restored = load_agent_state(Scout, filepath, base_dir=str(tmp_path))
     assert restored.name == "MyScout"
     assert restored.matches == scout.matches
 
@@ -470,8 +470,8 @@ def test_persistence_archivist(tmp_path):
         },
     })
     filepath = str(tmp_path / "archivist_state.json")
-    save_agent_state(archivist, filepath)
-    restored = load_agent_state(Archivist, filepath)
+    save_agent_state(archivist, filepath, base_dir=str(tmp_path))
+    restored = load_agent_state(Archivist, filepath, base_dir=str(tmp_path))
     assert restored.name == "MyArchivist"
     assert "p1" in restored.individuals
 
@@ -481,8 +481,8 @@ def test_persistence_narrative_memory(tmp_path):
     nm = NarrativeMemory()
     nm.store_memory("test", {"data": "x"}, significance=0.8)
     filepath = str(tmp_path / "nm_state.json")
-    save_agent_state(nm, filepath)
-    restored = load_agent_state(NarrativeMemory, filepath)
+    save_agent_state(nm, filepath, base_dir=str(tmp_path))
+    restored = load_agent_state(NarrativeMemory, filepath, base_dir=str(tmp_path))
     assert len(restored.memories) == 1
 
 
@@ -498,7 +498,7 @@ def test_persistence_load_unsupported_class(tmp_path):
     with open(filepath, "w") as f:
         json.dump({}, f)
     with pytest.raises(TypeError):
-        load_agent_state(object, filepath)
+        load_agent_state(object, filepath, base_dir=str(tmp_path))
 
 
 # ---------------------------------------------------------------------------
@@ -646,3 +646,29 @@ def test_api_archivist_parse():
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+def test_secure_path(tmp_path):
+    from sagascout.persistence import _get_secure_path
+    import pytest
+    base = tmp_path / "data"
+    base.mkdir()
+
+    # Valid relative path
+    p = _get_secure_path("test.json", str(base))
+    assert p == base / "test.json"
+
+    # Valid absolute path inside base
+    p = _get_secure_path(str(base / "test2.json"), str(base))
+    assert p == base / "test2.json"
+
+    # Invalid absolute path outside base
+    with pytest.raises(PermissionError):
+        _get_secure_path("/etc/passwd", str(base))
+
+    # Invalid relative path with traversal
+    with pytest.raises(PermissionError):
+        _get_secure_path("../passwd", str(base))
+
+    # Edge case: traversal that stays inside base
+    p = _get_secure_path("subdir/../test3.json", str(base))
+    assert p == base / "test3.json"
