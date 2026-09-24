@@ -243,6 +243,25 @@ def test_oracle_extraction_with_missing_fields():
     print("✓ Oracle extraction with missing fields test passed")
 
 
+def test_scout_analyze_match_invalid_data():
+    """Test that Scout analyze_match correctly handles invalid data."""
+    scout = Scout(name="TestScout")
+
+    match_data = {
+        "id": "m2",
+        "name": "Test Match Invalid",
+        "shared_cm": "invalid_cm",
+        "segments": "invalid_segments",
+    }
+
+    result = scout.analyze_match(match_data)
+
+    assert result["shared_cm"] == 0.0
+    assert result["segments"] == 0
+    assert result["estimated_relationship"] == "Distant Cousin"
+
+    print("✓ Scout analyze_match invalid data test passed")
+
 if __name__ == "__main__":
     print("Running refactored code tests...\n")
     
@@ -252,5 +271,6 @@ if __name__ == "__main__":
     test_archivist_person_validation()
     test_governance_coordination_mapping()
     test_oracle_extraction_with_missing_fields()
+    test_scout_analyze_match_invalid_data()
     
     print("\n✓ All refactored code tests passed!")

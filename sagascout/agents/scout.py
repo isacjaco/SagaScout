@@ -115,8 +115,15 @@ class Scout(BaseAgent):
         Returns:
             Analysis results for the match
         """
-        shared_cm = match.get("shared_cm", 0)
-        segments = match.get("segments", 0)
+        try:
+            shared_cm = float(match.get("shared_cm", 0))
+        except (ValueError, TypeError):
+            shared_cm = 0.0
+
+        try:
+            segments = int(match.get("segments", 0))
+        except (ValueError, TypeError):
+            segments = 0
 
         # Estimate relationship
         relationship = self._estimate_relationship(shared_cm)
