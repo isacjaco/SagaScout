@@ -27,6 +27,7 @@ class Archivist(BaseAgent):
             config: Configuration dictionary
         """
         super().__init__(name, config)
+        self.workspace_dir = Path(self.config.get("workspace_dir", ".")).resolve()
         self.tree = nx.DiGraph()
         self.individuals = {}
 
@@ -387,6 +388,8 @@ class Archivist(BaseAgent):
 
         # Resolve and validate path before use to guard against path traversal
         path = Path(filepath).resolve()
+        if not path.is_relative_to(self.workspace_dir):
+            return {"error": f"Access denied: filepath is outside the allowed workspace"}
         if not path.is_file():
             return {"error": f"File not found: {filepath}"}
 
@@ -515,6 +518,8 @@ class Archivist(BaseAgent):
 
         # Resolve path to guard against path traversal before writing
         dest = Path(filepath).resolve()
+        if not dest.is_relative_to(self.workspace_dir):
+            return {"error": f"Access denied: filepath is outside the allowed workspace"}
         dest.write_text("\n".join(lines), encoding="utf-8")
 
         return {
@@ -550,7 +555,10 @@ class Archivist(BaseAgent):
         Args:
             filepath: Destination file path
         """
-        Path(filepath).write_text(
+        dest = Path(filepath).resolve()
+        if not dest.is_relative_to(self.workspace_dir):
+            raise ValueError("Access denied: Filepath is outside the allowed workspace")
+        dest.write_text(
             json.dumps(self.to_json(), indent=2), encoding="utf-8"
         )
 
@@ -586,5 +594,9 @@ class Archivist(BaseAgent):
         Returns:
             Archivist instance populated with the saved state
         """
-        data = json.loads(Path(filepath).read_text(encoding="utf-8"))
+        workspace_dir = Path((config or {}).get("workspace_dir", ".")).resolve()
+        source = Path(filepath).resolve()
+        if not source.is_relative_to(workspace_dir):
+            raise ValueError("Access denied: Filepath is outside the allowed workspace")
+        data = json.loads(source.read_text(encoding="utf-8"))
         return cls.from_json(data, name=name, config=config)
