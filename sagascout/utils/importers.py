@@ -13,6 +13,8 @@ class GEDCOMImporter:
     that are compatible with the rest of the SagaScout tree layer.
     """
 
+    _NAME_REGEX = re.compile(r"/([^/]*)/")
+
     # GEDCOM tag constants
     _TAG_INDI = "INDI"
     _TAG_FAM = "FAM"
@@ -207,30 +209,36 @@ class GEDCOMImporter:
 
             # Spouse relationship
             if husb and wife:
-                relationships.append({
-                    "type": "spouse",
-                    "person1": husb,
-                    "person2": wife,
-                    "marriage_date": family.get("marriage_date"),
-                    "marriage_place": family.get("marriage_place"),
-                })
+                relationships.append(
+                    {
+                        "type": "spouse",
+                        "person1": husb,
+                        "person2": wife,
+                        "marriage_date": family.get("marriage_date"),
+                        "marriage_place": family.get("marriage_place"),
+                    }
+                )
 
             # Parent→child relationships
             for child in children:
                 if husb:
-                    relationships.append({
-                        "type": "parent",
-                        "parent": husb,
-                        "child": child,
-                        "parent_role": "father",
-                    })
+                    relationships.append(
+                        {
+                            "type": "parent",
+                            "parent": husb,
+                            "child": child,
+                            "parent_role": "father",
+                        }
+                    )
                 if wife:
-                    relationships.append({
-                        "type": "parent",
-                        "parent": wife,
-                        "child": child,
-                        "parent_role": "mother",
-                    })
+                    relationships.append(
+                        {
+                            "type": "parent",
+                            "parent": wife,
+                            "child": child,
+                            "parent_role": "mother",
+                        }
+                    )
 
         return {
             "source": "gedcom",
@@ -247,7 +255,7 @@ class GEDCOMImporter:
     @staticmethod
     def _clean_name(raw: str) -> str:
         """Remove GEDCOM surname slashes and extra whitespace from a name."""
-        return re.sub(r"/([^/]*)/", r"\1", raw).strip()
+        return GEDCOMImporter._NAME_REGEX.sub(r"\1", raw).strip()
 
 
 class JSONImporter:
@@ -358,19 +366,23 @@ class JSONImporter:
             father_id = person.get("father_id")
             mother_id = person.get("mother_id")
             if father_id:
-                relationships.append({
-                    "type": "parent",
-                    "parent": str(father_id),
-                    "child": pid,
-                    "parent_role": "father",
-                })
+                relationships.append(
+                    {
+                        "type": "parent",
+                        "parent": str(father_id),
+                        "child": pid,
+                        "parent_role": "father",
+                    }
+                )
             if mother_id:
-                relationships.append({
-                    "type": "parent",
-                    "parent": str(mother_id),
-                    "child": pid,
-                    "parent_role": "mother",
-                })
+                relationships.append(
+                    {
+                        "type": "parent",
+                        "parent": str(mother_id),
+                        "child": pid,
+                        "parent_role": "mother",
+                    }
+                )
 
         return {
             "source": "json",
@@ -398,6 +410,5 @@ def load_tree(path: str) -> Dict[str, Any]:
     if lower.endswith(".json"):
         return JSONImporter().parse_file(path)
     raise ValueError(
-        f"Unsupported file format for '{path}'. "
-        "Supported extensions: .ged, .json"
+        f"Unsupported file format for '{path}'. " "Supported extensions: .ged, .json"
     )
