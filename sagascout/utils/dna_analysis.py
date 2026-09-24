@@ -43,7 +43,7 @@ class DNAAnalyzer:
                 distance = abs(shared_cm - center)
                 range_size = max_cm - min_cm
                 position_factor = 1 - (distance / (range_size / 2)) * 0.3
-                
+
                 probabilities[rel_name] = base_prob * position_factor
 
         return probabilities
@@ -132,7 +132,7 @@ class DNAAnalyzer:
 
         for match in sorted_matches[1:]:
             match_cm = match.get("shared_cm", 0)
-            
+
             # If within threshold of current cluster average, add to cluster
             if abs(match_cm - current_cm) / max(current_cm, 1) < threshold:
                 current_cluster.append(match)
@@ -176,9 +176,7 @@ class GeneticClustering:
     """Advanced clustering algorithms for DNA matches."""
 
     @staticmethod
-    def hierarchical_cluster(
-        matches: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+    def hierarchical_cluster(matches: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
         Perform hierarchical clustering on DNA matches.
 
@@ -251,15 +249,17 @@ class GeneticClustering:
 
             # Find matches who share with this match
             shared = shared_matches.get(match_id, [])
-            
+
             # Check if they all share with each other (triangulation)
             group = [match_id]
+            group_set = {match_id}
             for shared_id in shared:
                 if shared_id not in processed:
                     # Verify triangulation
                     their_shared = shared_matches.get(shared_id, [])
-                    if all(m in their_shared for m in group):
+                    if group_set.issubset(their_shared):
                         group.append(shared_id)
+                        group_set.add(shared_id)
 
             if len(group) > 1:
                 groups.append(group)
