@@ -34,7 +34,6 @@ Usage
     report = manager.run_discovery_cycle()
 """
 
-from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
@@ -84,9 +83,9 @@ class FamilyNodeAgent(BaseAgent):
         self.person_data: Dict[str, Any] = dict(person_data)
 
         # Tree structure
-        self.mother_agent: Optional[FamilyNodeAgent] = None
-        self.father_agent: Optional[FamilyNodeAgent] = None
-        self.child_agents: List[FamilyNodeAgent] = []
+        self.mother_agent: Optional["FamilyNodeAgent"] = None
+        self.father_agent: Optional["FamilyNodeAgent"] = None
+        self.child_agents: List["FamilyNodeAgent"] = []
 
         # Knowledge containers
         self._collected_knowledge: List[Dict[str, Any]] = []
@@ -96,17 +95,17 @@ class FamilyNodeAgent(BaseAgent):
     # Tree structure helpers
     # ------------------------------------------------------------------
 
-    def add_child(self, child: FamilyNodeAgent) -> None:
+    def add_child(self, child: "FamilyNodeAgent") -> None:
         """Register *child* as a descendant of this node."""
         if child not in self.child_agents:
             self.child_agents.append(child)
 
-    def set_mother(self, mother: FamilyNodeAgent) -> None:
+    def set_mother(self, mother: "FamilyNodeAgent") -> None:
         """Set the mother (parent) agent for this node."""
         self.mother_agent = mother
         mother.add_child(self)
 
-    def set_father(self, father: FamilyNodeAgent) -> None:
+    def set_father(self, father: "FamilyNodeAgent") -> None:
         """Set the father (parent) agent for this node."""
         self.father_agent = father
         father.add_child(self)
