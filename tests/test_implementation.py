@@ -13,8 +13,6 @@ Expanded test suite covering:
 """
 
 import json
-import os
-import tempfile
 
 import pytest
 
@@ -22,23 +20,25 @@ from sagascout import Scout, Archivist, Oracle, Diplomat
 from sagascout.utils import DNAAnalyzer, NarrativeMemory, GovernanceRitual
 from sagascout.persistence import save_agent_state, load_agent_state
 
-
 # ---------------------------------------------------------------------------
 # Diplomat: send_message
 # ---------------------------------------------------------------------------
 
+
 def test_diplomat_send_message():
     """Test Diplomat.send_message records communication and updates contact."""
     diplomat = Diplomat(name="TestDiplomat")
-    result = diplomat.process({
-        "action": "send",
-        "message": {
-            "recipient": {"id": "r1", "name": "Alice"},
-            "subject": "Hello",
-            "body": "Test body",
-        },
-        "timestamp": "2026-01-01T00:00:00",
-    })
+    result = diplomat.process(
+        {
+            "action": "send",
+            "message": {
+                "recipient": {"id": "r1", "name": "Alice"},
+                "subject": "Hello",
+                "body": "Test body",
+            },
+            "timestamp": "2026-01-01T00:00:00",
+        }
+    )
     assert result["status"] == "success"
     assert "communication_id" in result
     assert result["recipient_id"] == "r1"
@@ -58,40 +58,46 @@ def test_diplomat_respond_to_message():
     diplomat = Diplomat(name="TestDiplomat")
 
     # Question intent
-    result = diplomat.process({
-        "action": "respond",
-        "original_message": {
-            "text": "Do you have records for the Johnson family?",
-            "subject": "Family History Question",
-            "language": "en",
-        },
-        "tone": "friendly",
-    })
+    result = diplomat.process(
+        {
+            "action": "respond",
+            "original_message": {
+                "text": "Do you have records for the Johnson family?",
+                "subject": "Family History Question",
+                "language": "en",
+            },
+            "tone": "friendly",
+        }
+    )
     assert result["status"] == "success"
     assert "response" in result
     assert "analysis" in result
     assert result["analysis"]["intent"] == "question"
 
     # Information-sharing intent
-    result2 = diplomat.process({
-        "action": "respond",
-        "original_message": {
-            "text": "I found and discovered some great records.",
-            "subject": "New Findings",
-            "language": "en",
-        },
-    })
+    result2 = diplomat.process(
+        {
+            "action": "respond",
+            "original_message": {
+                "text": "I found and discovered some great records.",
+                "subject": "New Findings",
+                "language": "en",
+            },
+        }
+    )
     assert result2["analysis"]["intent"] == "information_sharing"
 
 
 def test_diplomat_analyze_cultural_context_known():
     """Test analyze_cultural_context returns profile for known country."""
     diplomat = Diplomat(name="TestDiplomat")
-    result = diplomat.process({
-        "action": "analyze_culture",
-        "country": "JP",
-        "situation": "general",
-    })
+    result = diplomat.process(
+        {
+            "action": "analyze_culture",
+            "country": "JP",
+            "situation": "general",
+        }
+    )
     assert result["status"] == "success"
     assert result["analysis"]["country"] == "JP"
     assert result["analysis"]["formality_level"] == "high"
@@ -102,10 +108,12 @@ def test_diplomat_analyze_cultural_context_known():
 def test_diplomat_analyze_cultural_context_unknown():
     """Test analyze_cultural_context gracefully handles unknown country."""
     diplomat = Diplomat(name="TestDiplomat")
-    result = diplomat.process({
-        "action": "analyze_culture",
-        "country": "ZZ",
-    })
+    result = diplomat.process(
+        {
+            "action": "analyze_culture",
+            "country": "ZZ",
+        }
+    )
     assert result["status"] == "limited"
     assert "message" in result
 
@@ -121,6 +129,7 @@ def test_diplomat_invalid_action():
 # Oracle: negative / invalid-input tests
 # ---------------------------------------------------------------------------
 
+
 def test_oracle_invalid_action():
     """Test Oracle.process returns error for unknown action."""
     oracle = Oracle(name="TestOracle")
@@ -131,11 +140,13 @@ def test_oracle_invalid_action():
 def test_oracle_research_unsupported_language():
     """Test Oracle.research silently skips unsupported languages."""
     oracle = Oracle(name="TestOracle")
-    result = oracle.process({
-        "action": "research",
-        "query": "test",
-        "languages": ["xx"],  # unsupported
-    })
+    result = oracle.process(
+        {
+            "action": "research",
+            "query": "test",
+            "languages": ["xx"],  # unsupported
+        }
+    )
     assert result["status"] == "success"
     assert result["results"] == []
 
@@ -143,16 +154,20 @@ def test_oracle_research_unsupported_language():
 def test_oracle_archive_search_deterministic():
     """Test that archive search returns the same value across calls."""
     oracle = Oracle(name="TestOracle", config={"archive_search_result_count": 7})
-    result1 = oracle.process({
-        "action": "search_archives",
-        "query": "Smith",
-        "countries": ["US"],
-    })
-    result2 = oracle.process({
-        "action": "search_archives",
-        "query": "Smith",
-        "countries": ["US"],
-    })
+    result1 = oracle.process(
+        {
+            "action": "search_archives",
+            "query": "Smith",
+            "countries": ["US"],
+        }
+    )
+    result2 = oracle.process(
+        {
+            "action": "search_archives",
+            "query": "Smith",
+            "countries": ["US"],
+        }
+    )
     counts_1 = [r["records_found"] for r in result1["results"]]
     counts_2 = [r["records_found"] for r in result2["results"]]
     assert counts_1 == counts_2
@@ -162,28 +177,35 @@ def test_oracle_archive_search_deterministic():
 def test_oracle_archive_search_hash_deterministic():
     """Test that default (hash-based) archive stub is stable without config."""
     oracle = Oracle(name="TestOracle")
-    result1 = oracle.process({
-        "action": "search_archives",
-        "query": "Jones",
-        "countries": ["UK"],
-    })
-    result2 = oracle.process({
-        "action": "search_archives",
-        "query": "Jones",
-        "countries": ["UK"],
-    })
-    assert [r["records_found"] for r in result1["results"]] == \
-           [r["records_found"] for r in result2["results"]]
+    result1 = oracle.process(
+        {
+            "action": "search_archives",
+            "query": "Jones",
+            "countries": ["UK"],
+        }
+    )
+    result2 = oracle.process(
+        {
+            "action": "search_archives",
+            "query": "Jones",
+            "countries": ["UK"],
+        }
+    )
+    assert [r["records_found"] for r in result1["results"]] == [
+        r["records_found"] for r in result2["results"]
+    ]
 
 
 def test_oracle_translate_stub():
     """Test stub translation prefixes language code."""
     oracle = Oracle(name="TestOracle")
-    result = oracle.process({
-        "action": "translate",
-        "query": "family",
-        "languages": ["de", "fr"],
-    })
+    result = oracle.process(
+        {
+            "action": "translate",
+            "query": "family",
+            "languages": ["de", "fr"],
+        }
+    )
     assert result["status"] == "success"
     assert result["translations"]["de"]["translated"] == "[de] family"
     assert result["translations"]["fr"]["translated"] == "[fr] family"
@@ -192,6 +214,7 @@ def test_oracle_translate_stub():
 # ---------------------------------------------------------------------------
 # Scout: negative tests, find_shared_matches_from_data, serialization
 # ---------------------------------------------------------------------------
+
 
 def test_scout_find_shared_matches_from_data():
     """Test find_shared_matches_from_data returns intersection of shared matches."""
@@ -247,10 +270,7 @@ def test_scout_csv_import_ancestry_missing_file():
 
 def test_scout_csv_import_23andme(tmp_path):
     """Test 23andMe CSV import."""
-    csv_content = (
-        "Name,DNA Shared,Segments\n"
-        "Carol Brown,700,12\n"
-    )
+    csv_content = "Name,DNA Shared,Segments\n" "Carol Brown,700,12\n"
     csv_file = tmp_path / "23andme.csv"
     csv_file.write_text(csv_content, encoding="utf-8")
 
@@ -289,29 +309,34 @@ def test_scout_save_load_file(tmp_path):
 # Archivist: merge conflict, serialization, GEDCOM export
 # ---------------------------------------------------------------------------
 
+
 def test_archivist_merge_conflict_detection():
     """Test that merge_trees detects conflicting field values."""
     archivist = Archivist(name="TestArchivist")
-    archivist.process({
-        "action": "parse",
-        "data": {
-            "individuals": [
-                {"id": "p1", "name": "John Doe", "birth_date": "1900-01-01"},
-            ],
-            "relationships": [],
-        },
-    })
+    archivist.process(
+        {
+            "action": "parse",
+            "data": {
+                "individuals": [
+                    {"id": "p1", "name": "John Doe", "birth_date": "1900-01-01"},
+                ],
+                "relationships": [],
+            },
+        }
+    )
 
     # Merge with conflicting birth_date
-    result = archivist.process({
-        "action": "merge",
-        "data": {
-            "individuals": [
-                {"id": "p1", "name": "John Doe", "birth_date": "1905-06-15"},
-            ],
-            "relationships": [],
-        },
-    })
+    result = archivist.process(
+        {
+            "action": "merge",
+            "data": {
+                "individuals": [
+                    {"id": "p1", "name": "John Doe", "birth_date": "1905-06-15"},
+                ],
+                "relationships": [],
+            },
+        }
+    )
     assert result["status"] == "success"
     assert len(result["conflicts"]) == 1
     conflict = result["conflicts"][0]
@@ -322,20 +347,24 @@ def test_archivist_merge_conflict_detection():
 def test_archivist_merge_no_conflict():
     """Test that merge_trees with same data produces no conflicts."""
     archivist = Archivist(name="TestArchivist")
-    archivist.process({
-        "action": "parse",
-        "data": {
-            "individuals": [{"id": "p1", "name": "Jane"}],
-            "relationships": [],
-        },
-    })
-    result = archivist.process({
-        "action": "merge",
-        "data": {
-            "individuals": [{"id": "p1", "name": "Jane"}],
-            "relationships": [],
-        },
-    })
+    archivist.process(
+        {
+            "action": "parse",
+            "data": {
+                "individuals": [{"id": "p1", "name": "Jane"}],
+                "relationships": [],
+            },
+        }
+    )
+    result = archivist.process(
+        {
+            "action": "merge",
+            "data": {
+                "individuals": [{"id": "p1", "name": "Jane"}],
+                "relationships": [],
+            },
+        }
+    )
     assert result["conflicts"] == []
 
 
@@ -349,16 +378,18 @@ def test_archivist_invalid_action():
 def test_archivist_serialization_roundtrip():
     """Test Archivist to_json / from_json round-trip."""
     archivist = Archivist(name="TestArchivist")
-    archivist.process({
-        "action": "parse",
-        "data": {
-            "individuals": [
-                {"id": "p1", "name": "Alice"},
-                {"id": "p2", "name": "Bob"},
-            ],
-            "relationships": [{"parent": "p1", "child": "p2"}],
-        },
-    })
+    archivist.process(
+        {
+            "action": "parse",
+            "data": {
+                "individuals": [
+                    {"id": "p1", "name": "Alice"},
+                    {"id": "p2", "name": "Bob"},
+                ],
+                "relationships": [{"parent": "p1", "child": "p2"}],
+            },
+        }
+    )
     data = archivist.to_json()
     restored = Archivist.from_json(data, name="Restored")
     assert set(restored.individuals.keys()) == {"p1", "p2"}
@@ -368,13 +399,15 @@ def test_archivist_serialization_roundtrip():
 def test_archivist_save_load_file(tmp_path):
     """Test Archivist save_to_file / load_from_file."""
     archivist = Archivist(name="TestArchivist")
-    archivist.process({
-        "action": "parse",
-        "data": {
-            "individuals": [{"id": "x1", "name": "Eve"}],
-            "relationships": [],
-        },
-    })
+    archivist.process(
+        {
+            "action": "parse",
+            "data": {
+                "individuals": [{"id": "x1", "name": "Eve"}],
+                "relationships": [],
+            },
+        }
+    )
     filepath = str(tmp_path / "archivist.json")
     archivist.save_to_file(filepath)
 
@@ -385,16 +418,18 @@ def test_archivist_save_load_file(tmp_path):
 def test_archivist_gedcom_export(tmp_path):
     """Test GEDCOM export produces a valid-looking .ged file."""
     archivist = Archivist(name="TestArchivist")
-    archivist.process({
-        "action": "parse",
-        "data": {
-            "individuals": [
-                {"id": "I1", "name": "John Smith", "birth_date": "1900-01-01"},
-                {"id": "I2", "name": "Jane Smith"},
-            ],
-            "relationships": [{"parent": "I1", "child": "I2"}],
-        },
-    })
+    archivist.process(
+        {
+            "action": "parse",
+            "data": {
+                "individuals": [
+                    {"id": "I1", "name": "John Smith", "birth_date": "1900-01-01"},
+                    {"id": "I2", "name": "Jane Smith"},
+                ],
+                "relationships": [{"parent": "I1", "child": "I2"}],
+            },
+        }
+    )
     gedcom_path = str(tmp_path / "tree.ged")
     result = archivist.export_gedcom(gedcom_path)
     assert result["status"] == "success"
@@ -415,6 +450,7 @@ def test_archivist_gedcom_parse_missing_file():
 # ---------------------------------------------------------------------------
 # NarrativeMemory: serialization
 # ---------------------------------------------------------------------------
+
 
 def test_narrative_memory_serialization_roundtrip():
     """Test NarrativeMemory to_json / from_json round-trip."""
@@ -448,6 +484,7 @@ def test_narrative_memory_save_load_file(tmp_path):
 # Persistence module
 # ---------------------------------------------------------------------------
 
+
 def test_persistence_scout(tmp_path):
     """Test save_agent_state / load_agent_state for Scout."""
     scout = Scout(name="MyScout")
@@ -462,13 +499,15 @@ def test_persistence_scout(tmp_path):
 def test_persistence_archivist(tmp_path):
     """Test save_agent_state / load_agent_state for Archivist."""
     archivist = Archivist(name="MyArchivist")
-    archivist.process({
-        "action": "parse",
-        "data": {
-            "individuals": [{"id": "p1", "name": "Alice"}],
-            "relationships": [],
-        },
-    })
+    archivist.process(
+        {
+            "action": "parse",
+            "data": {
+                "individuals": [{"id": "p1", "name": "Alice"}],
+                "relationships": [],
+            },
+        }
+    )
     filepath = str(tmp_path / "archivist_state.json")
     save_agent_state(archivist, filepath)
     restored = load_agent_state(Archivist, filepath)
@@ -505,6 +544,7 @@ def test_persistence_load_unsupported_class(tmp_path):
 # GovernanceRitual: unknown ritual type
 # ---------------------------------------------------------------------------
 
+
 def test_governance_unknown_ritual_type():
     """Test execute_ritual returns error for unknown ritual type."""
     gov = GovernanceRitual()
@@ -524,9 +564,11 @@ def test_governance_ritual_not_found():
 # GovernanceRitual imported from governance module (new home)
 # ---------------------------------------------------------------------------
 
+
 def test_governance_ritual_import_path():
     """Test that GovernanceRitual is importable from the new module."""
     from sagascout.utils.governance import GovernanceRitual as GR
+
     assert GR is GovernanceRitual
 
 
@@ -534,9 +576,11 @@ def test_governance_ritual_import_path():
 # CLI smoke tests
 # ---------------------------------------------------------------------------
 
+
 def test_cli_scout_analyze_empty(capsys):
     """Test CLI scout analyze with no matches returns valid JSON."""
     from sagascout.__main__ import build_parser, _cmd_scout
+
     parser = build_parser()
     args = parser.parse_args(["scout", "analyze"])
     _cmd_scout(args)
@@ -548,6 +592,7 @@ def test_cli_scout_analyze_empty(capsys):
 def test_cli_oracle_research(capsys):
     """Test CLI oracle research returns JSON."""
     from sagascout.__main__ import build_parser, _cmd_oracle
+
     parser = build_parser()
     args = parser.parse_args(["oracle", "research", "--query", "Smith"])
     _cmd_oracle(args)
@@ -559,12 +604,18 @@ def test_cli_oracle_research(capsys):
 def test_cli_diplomat_draft(capsys):
     """Test CLI diplomat draft returns JSON."""
     from sagascout.__main__ import build_parser, _cmd_diplomat
+
     parser = build_parser()
-    args = parser.parse_args([
-        "diplomat", "draft",
-        "--recipient", '{"id": "r1", "country": "US"}',
-        "--purpose", "initial_contact",
-    ])
+    args = parser.parse_args(
+        [
+            "diplomat",
+            "draft",
+            "--recipient",
+            '{"id": "r1", "country": "US"}',
+            "--purpose",
+            "initial_contact",
+        ]
+    )
     _cmd_diplomat(args)
     captured = capsys.readouterr()
     result = json.loads(captured.out)
@@ -575,10 +626,26 @@ def test_cli_diplomat_draft(capsys):
 # FastAPI smoke tests
 # ---------------------------------------------------------------------------
 
+
+def test_api_unauthorized():
+    """Test that protected endpoints return 403 without API key."""
+    from fastapi.testclient import TestClient
+    from sagascout.api import app
+
+    client = TestClient(app)
+    response = client.post(
+        "/scout/analyze", json={"payload": {"matches": [], "threshold_cm": 20}}
+    )
+    # By default fastapi raises 403 when API key header is missing
+    assert response.status_code == 401
+    assert "detail" in response.json()
+
+
 def test_api_health():
     """Test /health endpoint returns ok."""
     from fastapi.testclient import TestClient
     from sagascout.api import app
+
     client = TestClient(app)
     response = client.get("/health")
     assert response.status_code == 200
@@ -589,13 +656,18 @@ def test_api_scout_analyze():
     """Test /scout/analyze endpoint."""
     from fastapi.testclient import TestClient
     from sagascout.api import app
+
     client = TestClient(app)
-    response = client.post("/scout/analyze", json={
-        "payload": {
-            "matches": [{"id": "m1", "shared_cm": 850, "segments": 15}],
-            "threshold_cm": 20,
-        }
-    })
+    response = client.post(
+        "/scout/analyze",
+        headers={"X-API-Key": "test-api-key"},
+        json={
+            "payload": {
+                "matches": [{"id": "m1", "shared_cm": 850, "segments": 15}],
+                "threshold_cm": 20,
+            }
+        },
+    )
     assert response.status_code == 200
     result = response.json()["result"]
     assert result["total_matches"] == 1
@@ -605,10 +677,13 @@ def test_api_oracle_research():
     """Test /oracle/research endpoint."""
     from fastapi.testclient import TestClient
     from sagascout.api import app
+
     client = TestClient(app)
-    response = client.post("/oracle/research", json={
-        "payload": {"query": "Jones family", "languages": ["en"]}
-    })
+    response = client.post(
+        "/oracle/research",
+        headers={"X-API-Key": "test-api-key"},
+        json={"payload": {"query": "Jones family", "languages": ["en"]}},
+    )
     assert response.status_code == 200
     assert response.json()["result"]["status"] == "success"
 
@@ -617,14 +692,19 @@ def test_api_diplomat_draft():
     """Test /diplomat/draft endpoint."""
     from fastapi.testclient import TestClient
     from sagascout.api import app
+
     client = TestClient(app)
-    response = client.post("/diplomat/draft", json={
-        "payload": {
-            "recipient": {"id": "r1", "country": "US"},
-            "purpose": "initial_contact",
-            "language": "en",
-        }
-    })
+    response = client.post(
+        "/diplomat/draft",
+        headers={"X-API-Key": "test-api-key"},
+        json={
+            "payload": {
+                "recipient": {"id": "r1", "country": "US"},
+                "purpose": "initial_contact",
+                "language": "en",
+            }
+        },
+    )
     assert response.status_code == 200
     assert response.json()["result"]["status"] == "success"
 
@@ -633,13 +713,18 @@ def test_api_archivist_parse():
     """Test /archivist/parse endpoint."""
     from fastapi.testclient import TestClient
     from sagascout.api import app
+
     client = TestClient(app)
-    response = client.post("/archivist/parse", json={
-        "payload": {
-            "individuals": [{"id": "p1", "name": "Alice"}],
-            "relationships": [],
-        }
-    })
+    response = client.post(
+        "/archivist/parse",
+        headers={"X-API-Key": "test-api-key"},
+        json={
+            "payload": {
+                "individuals": [{"id": "p1", "name": "Alice"}],
+                "relationships": [],
+            }
+        },
+    )
     assert response.status_code == 200
     assert response.json()["result"]["status"] == "success"
 
