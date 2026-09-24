@@ -9,7 +9,7 @@ from datetime import datetime
 class NarrativeMemory:
     """
     Narrative-driven memory system for agents.
-    
+
     Stores events as narrative memories with context, emotional significance,
     and connections to other memories.
     """
@@ -40,7 +40,7 @@ class NarrativeMemory:
             Memory ID
         """
         memory_id = f"mem_{len(self.memories)}"
-        
+
         memory = {
             "id": memory_id,
             "type": event_type,
@@ -79,22 +79,24 @@ class NarrativeMemory:
         Returns:
             List of matching memories
         """
+        query_lower = query.lower() if query else None
+
         results = []
 
         for memory in self.memories:
             # Apply filters
             if event_type and memory["type"] != event_type:
                 continue
-            
+
             if memory["significance"] < min_significance:
                 continue
-            
+
             if tags and not any(tag in memory["tags"] for tag in tags):
                 continue
-            
-            if query:
+
+            if query_lower:
                 content_str = str(memory["content"]).lower()
-                if query.lower() not in content_str:
+                if query_lower not in content_str:
                     continue
 
             results.append(memory)
@@ -107,8 +109,9 @@ class NarrativeMemory:
 
         return results
 
-    def connect_memories(self, memory_id1: str, memory_id2: str, 
-                        connection_type: str = "related") -> None:
+    def connect_memories(
+        self, memory_id1: str, memory_id2: str, connection_type: str = "related"
+    ) -> None:
         """
         Create a connection between two memories.
 
@@ -122,7 +125,7 @@ class NarrativeMemory:
                 "to": memory_id2,
                 "type": connection_type,
             }
-            
+
             self.memory_index[memory_id1]["connections"].append(connection)
             self.memory_connections[memory_id1].append(memory_id2)
 
@@ -142,8 +145,7 @@ class NarrativeMemory:
         memory = self.memory_index[memory_id]
         connected_ids = self.memory_connections.get(memory_id, [])
         connected_memories = [
-            self.memory_index[mid] for mid in connected_ids
-            if mid in self.memory_index
+            self.memory_index[mid] for mid in connected_ids if mid in self.memory_index
         ]
 
         return {
@@ -155,25 +157,26 @@ class NarrativeMemory:
     def _auto_tag_memory(self, memory: Dict[str, Any]) -> None:
         """Automatically add tags based on memory content."""
         content_str = str(memory["content"]).lower()
-        
+
         # DNA-related tags
         if any(word in content_str for word in ["dna", "match", "centimorgans"]):
             memory["tags"].append("dna")
-        
+
         # Research tags
         if any(word in content_str for word in ["research", "archive", "document"]):
             memory["tags"].append("research")
-        
+
         # Communication tags
         if any(word in content_str for word in ["message", "contact", "outreach"]):
             memory["tags"].append("communication")
-        
+
         # Discovery tags
         if any(word in content_str for word in ["found", "discovered", "identified"]):
             memory["tags"].append("discovery")
 
-    def _build_narrative_thread(self, memory_id: str,
-                                depth: int = 3) -> List[Dict[str, Any]]:
+    def _build_narrative_thread(
+        self, memory_id: str, depth: int = 3
+    ) -> List[Dict[str, Any]]:
         """Build a narrative thread from a memory."""
         if depth == 0 or memory_id not in self.memory_index:
             return []
@@ -200,8 +203,7 @@ class NarrativeMemory:
         return {
             "memories": self.memories,
             "connections": {
-                mid: list(targets)
-                for mid, targets in self.memory_connections.items()
+                mid: list(targets) for mid, targets in self.memory_connections.items()
             },
         }
 
@@ -255,4 +257,3 @@ class NarrativeMemory:
 # imported GovernanceRitual from sagascout.utils.narrative_memory continues
 # to work without modification.
 from sagascout.utils.governance import GovernanceRitual  # noqa: F401, E402
-
