@@ -14,6 +14,7 @@ Run ``sagascout --help`` or ``sagascout <command> --help`` for full usage.
 import argparse
 import json
 import sys
+from typing import Any
 
 
 def _cmd_scout(args: argparse.Namespace) -> None:
@@ -60,6 +61,7 @@ def _cmd_archivist(args: argparse.Namespace) -> None:
         archivist_loaded = archivist
         if args.input:
             from sagascout.persistence import load_agent_state
+
             archivist_loaded = load_agent_state(Archivist, args.input)
         result = archivist_loaded.export_gedcom(args.output)
         print(json.dumps(result, indent=2))
@@ -67,6 +69,7 @@ def _cmd_archivist(args: argparse.Namespace) -> None:
     elif args.sub == "query":
         if args.input:
             from sagascout.persistence import load_agent_state
+
             archivist = load_agent_state(Archivist, args.input)
         query_data = {"type": args.type, "person_id": args.person_id}
         result = archivist.process({"action": "query", "data": query_data})
@@ -87,30 +90,36 @@ def _cmd_oracle(args: argparse.Namespace) -> None:
     if args.sub == "research":
         languages = args.languages or ["en"]
         countries = args.countries or []
-        result = oracle.process({
-            "action": "research",
-            "query": args.query,
-            "languages": languages,
-            "countries": countries,
-        })
+        result = oracle.process(
+            {
+                "action": "research",
+                "query": args.query,
+                "languages": languages,
+                "countries": countries,
+            }
+        )
         print(json.dumps(result, indent=2))
 
     elif args.sub == "translate":
         languages = args.languages or oracle.supported_languages
-        result = oracle.process({
-            "action": "translate",
-            "query": args.query,
-            "languages": languages,
-        })
+        result = oracle.process(
+            {
+                "action": "translate",
+                "query": args.query,
+                "languages": languages,
+            }
+        )
         print(json.dumps(result, indent=2))
 
     elif args.sub == "search-archives":
         countries = args.countries or []
-        result = oracle.process({
-            "action": "search_archives",
-            "query": args.query,
-            "countries": countries,
-        })
+        result = oracle.process(
+            {
+                "action": "search_archives",
+                "query": args.query,
+                "countries": countries,
+            }
+        )
         print(json.dumps(result, indent=2))
 
 
@@ -121,20 +130,111 @@ def _cmd_diplomat(args: argparse.Namespace) -> None:
 
     if args.sub == "draft":
         recipient = json.loads(args.recipient) if args.recipient else {}
-        result = diplomat.process({
-            "action": "draft",
-            "recipient": recipient,
-            "purpose": args.purpose or "initial_contact",
-            "language": args.language or "en",
-        })
+        result = diplomat.process(
+            {
+                "action": "draft",
+                "recipient": recipient,
+                "purpose": args.purpose or "initial_contact",
+                "language": args.language or "en",
+            }
+        )
         print(json.dumps(result, indent=2))
 
     elif args.sub == "analyze-culture":
-        result = diplomat.process({
-            "action": "analyze_culture",
-            "country": args.country,
-        })
+        result = diplomat.process(
+            {
+                "action": "analyze_culture",
+                "country": args.country,
+            }
+        )
         print(json.dumps(result, indent=2))
+
+
+def _add_scout_parser(subparsers: Any) -> None:
+    # ---- scout ----
+    scout_p = subparsers.add_parser("scout", help="DNA match analysis")
+    scout_sub = scout_p.add_subparsers(dest="sub", metavar="SUBCOMMAND")
+    analyze_p = scout_sub.add_parser("analyze", help="Analyze DNA matches")
+    analyze_p.add_argument(
+        "--matches", metavar="FILE", help="JSON file containing matches list"
+    )
+    import_anc_p = scout_sub.add_parser(
+        "import-ancestry", help="Import AncestryDNA CSV"
+    )
+    import_anc_p.add_argument("--file", required=True, metavar="FILE")
+    import_23_p = scout_sub.add_parser("import-23andme", help="Import 23andMe CSV")
+    import_23_p.add_argument("--file", required=True, metavar="FILE")
+
+
+def _add_archivist_parser(subparsers: Any) -> None:
+    # ---- archivist ----
+    arch_p = subparsers.add_parser("archivist", help="Family tree operations")
+    arch_sub = arch_p.add_subparsers(dest="sub", metavar="SUBCOMMAND")
+    parse_p = arch_sub.add_parser("parse", help="Parse JSON tree data")
+    parse_p.add_argument("--data", required=True, metavar="FILE")
+    gedcom_p = arch_sub.add_parser("parse-gedcom", help="Parse GEDCOM file")
+    gedcom_p.add_argument("--file", required=True, metavar="FILE")
+    exp_ged_p = arch_sub.add_parser("export-gedcom", help="Export GEDCOM file")
+    exp_ged_p.add_argument(
+        "--input", metavar="JSON_STATE_FILE", help="Agent state JSON (optional)"
+    )
+    exp_ged_p.add_argument("--output", required=True, metavar="FILE")
+    query_p = arch_sub.add_parser("query", help="Query the family tree")
+    query_p.add_argument(
+        "--type",
+        required=True,
+        choices=["ancestors", "descendants", "siblings", "statistics"],
+    )
+    query_p.add_argument("--person-id", dest="person_id", metavar="ID")
+    query_p.add_argument(
+        "--input", metavar="JSON_STATE_FILE", help="Agent state JSON (optional)"
+    )
+
+
+def _add_oracle_parser(subparsers: Any) -> None:
+    # ---- oracle ----
+    oracle_p = subparsers.add_parser("oracle", help="Multilingual research")
+    oracle_p.add_argument(
+        "--live", action="store_true", help="Enable live HTTP searches"
+    )
+    oracle_p.add_argument(
+        "--translation-provider",
+        dest="translation_provider",
+        choices=["google"],
+        help="Translation provider",
+    )
+    oracle_sub = oracle_p.add_subparsers(dest="sub", metavar="SUBCOMMAND")
+    research_p = oracle_sub.add_parser("research", help="Conduct research")
+    research_p.add_argument("--query", required=True)
+    research_p.add_argument("--languages", nargs="+")
+    research_p.add_argument("--countries", nargs="+")
+    translate_p = oracle_sub.add_parser("translate", help="Translate a query")
+    translate_p.add_argument("--query", required=True)
+    translate_p.add_argument("--languages", nargs="+")
+    search_arch_p = oracle_sub.add_parser(
+        "search-archives", help="Search genealogy archives"
+    )
+    search_arch_p.add_argument("--query", required=True)
+    search_arch_p.add_argument("--countries", nargs="+")
+
+
+def _add_diplomat_parser(subparsers: Any) -> None:
+    # ---- diplomat ----
+    dipl_p = subparsers.add_parser("diplomat", help="Communication drafting")
+    dipl_sub = dipl_p.add_subparsers(dest="sub", metavar="SUBCOMMAND")
+    draft_p = dipl_sub.add_parser("draft", help="Draft outreach message")
+    draft_p.add_argument(
+        "--recipient",
+        metavar="JSON",
+        help='JSON string e.g. \'{"id":"r1","country":"US"}\'',
+    )
+    draft_p.add_argument(
+        "--purpose",
+        choices=["initial_contact", "share_research", "request_information"],
+    )
+    draft_p.add_argument("--language", metavar="LANG_CODE")
+    culture_p = dipl_sub.add_parser("analyze-culture", help="Analyze cultural context")
+    culture_p.add_argument("--country", required=True, metavar="ISO_CODE")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -145,69 +245,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     subparsers = parser.add_subparsers(dest="command", metavar="COMMAND")
 
-    # ---- scout ----
-    scout_p = subparsers.add_parser("scout", help="DNA match analysis")
-    scout_sub = scout_p.add_subparsers(dest="sub", metavar="SUBCOMMAND")
-    analyze_p = scout_sub.add_parser("analyze", help="Analyze DNA matches")
-    analyze_p.add_argument("--matches", metavar="FILE",
-                           help="JSON file containing matches list")
-    import_anc_p = scout_sub.add_parser("import-ancestry",
-                                        help="Import AncestryDNA CSV")
-    import_anc_p.add_argument("--file", required=True, metavar="FILE")
-    import_23_p = scout_sub.add_parser("import-23andme",
-                                       help="Import 23andMe CSV")
-    import_23_p.add_argument("--file", required=True, metavar="FILE")
-
-    # ---- archivist ----
-    arch_p = subparsers.add_parser("archivist", help="Family tree operations")
-    arch_sub = arch_p.add_subparsers(dest="sub", metavar="SUBCOMMAND")
-    parse_p = arch_sub.add_parser("parse", help="Parse JSON tree data")
-    parse_p.add_argument("--data", required=True, metavar="FILE")
-    gedcom_p = arch_sub.add_parser("parse-gedcom", help="Parse GEDCOM file")
-    gedcom_p.add_argument("--file", required=True, metavar="FILE")
-    exp_ged_p = arch_sub.add_parser("export-gedcom", help="Export GEDCOM file")
-    exp_ged_p.add_argument("--input", metavar="JSON_STATE_FILE",
-                           help="Agent state JSON (optional)")
-    exp_ged_p.add_argument("--output", required=True, metavar="FILE")
-    query_p = arch_sub.add_parser("query", help="Query the family tree")
-    query_p.add_argument("--type", required=True,
-                         choices=["ancestors", "descendants", "siblings", "statistics"])
-    query_p.add_argument("--person-id", dest="person_id", metavar="ID")
-    query_p.add_argument("--input", metavar="JSON_STATE_FILE",
-                         help="Agent state JSON (optional)")
-
-    # ---- oracle ----
-    oracle_p = subparsers.add_parser("oracle", help="Multilingual research")
-    oracle_p.add_argument("--live", action="store_true",
-                          help="Enable live HTTP searches")
-    oracle_p.add_argument("--translation-provider", dest="translation_provider",
-                          choices=["google"], help="Translation provider")
-    oracle_sub = oracle_p.add_subparsers(dest="sub", metavar="SUBCOMMAND")
-    research_p = oracle_sub.add_parser("research", help="Conduct research")
-    research_p.add_argument("--query", required=True)
-    research_p.add_argument("--languages", nargs="+")
-    research_p.add_argument("--countries", nargs="+")
-    translate_p = oracle_sub.add_parser("translate", help="Translate a query")
-    translate_p.add_argument("--query", required=True)
-    translate_p.add_argument("--languages", nargs="+")
-    search_arch_p = oracle_sub.add_parser("search-archives",
-                                          help="Search genealogy archives")
-    search_arch_p.add_argument("--query", required=True)
-    search_arch_p.add_argument("--countries", nargs="+")
-
-    # ---- diplomat ----
-    dipl_p = subparsers.add_parser("diplomat", help="Communication drafting")
-    dipl_sub = dipl_p.add_subparsers(dest="sub", metavar="SUBCOMMAND")
-    draft_p = dipl_sub.add_parser("draft", help="Draft outreach message")
-    draft_p.add_argument("--recipient", metavar="JSON",
-                         help='JSON string e.g. \'{"id":"r1","country":"US"}\'')
-    draft_p.add_argument("--purpose",
-                         choices=["initial_contact", "share_research",
-                                  "request_information"])
-    draft_p.add_argument("--language", metavar="LANG_CODE")
-    culture_p = dipl_sub.add_parser("analyze-culture",
-                                    help="Analyze cultural context")
-    culture_p.add_argument("--country", required=True, metavar="ISO_CODE")
+    _add_scout_parser(subparsers)
+    _add_archivist_parser(subparsers)
+    _add_oracle_parser(subparsers)
+    _add_diplomat_parser(subparsers)
 
     return parser
 
@@ -236,7 +277,8 @@ def main() -> None:
     if not getattr(args, "sub", None):
         # Print subcommand help for the chosen command
         subparsers_actions = [
-            a for a in parser._subparsers._group_actions  # type: ignore[union-attr]
+            a
+            for a in parser._subparsers._group_actions  # type: ignore[union-attr]
             if hasattr(a, "_name_parser_map")
         ]
         for action in subparsers_actions:
