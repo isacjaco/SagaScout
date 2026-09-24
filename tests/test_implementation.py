@@ -384,7 +384,7 @@ def test_archivist_save_load_file(tmp_path):
 
 def test_archivist_gedcom_export(tmp_path):
     """Test GEDCOM export produces a valid-looking .ged file."""
-    archivist = Archivist(name="TestArchivist")
+    archivist = Archivist(name="TestArchivist", config={"export_dir": str(tmp_path)})
     archivist.process({
         "action": "parse",
         "data": {
@@ -404,6 +404,13 @@ def test_archivist_gedcom_export(tmp_path):
     assert "John Smith" in content
     assert "0 TRLR" in content
 
+def test_archivist_export_gedcom_path_traversal(tmp_path):
+    """Test that Archivist prevents path traversal when exporting GEDCOM."""
+    archivist = Archivist(name="TestArchivist", config={"export_dir": str(tmp_path)})
+    archivist.individuals = {"I1": {"id": "I1", "name": "John Smith"}}
+
+    with pytest.raises(ValueError, match="Path traversal detected"):
+        archivist.export_gedcom("../../../etc/passwd")
 
 def test_archivist_gedcom_parse_missing_file():
     """Test parse_gedcom with missing file returns error."""
