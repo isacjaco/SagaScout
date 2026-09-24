@@ -42,7 +42,6 @@ import networkx as nx
 
 from sagascout.core.base_agent import BaseAgent
 
-
 # ---------------------------------------------------------------------------
 # FamilyNodeAgent
 # ---------------------------------------------------------------------------
@@ -148,17 +147,21 @@ class FamilyNodeAgent(BaseAgent):
         """
         briefing = self.distil_knowledge()
         if self.mother_agent:
-            self.mother_agent.process({
-                "action": "contribute_knowledge",
-                "knowledge": briefing,
-                "from_child": self.person_id,
-            })
+            self.mother_agent.process(
+                {
+                    "action": "contribute_knowledge",
+                    "knowledge": briefing,
+                    "from_child": self.person_id,
+                }
+            )
         if self.father_agent:
-            self.father_agent.process({
-                "action": "contribute_knowledge",
-                "knowledge": briefing,
-                "from_child": self.person_id,
-            })
+            self.father_agent.process(
+                {
+                    "action": "contribute_knowledge",
+                    "knowledge": briefing,
+                    "from_child": self.person_id,
+                }
+            )
 
     def distil_knowledge(self) -> Dict[str, Any]:
         """
@@ -176,14 +179,14 @@ class FamilyNodeAgent(BaseAgent):
         if person.get("name"):
             summary_parts.append(f"Individual: {person['name']}")
         if person.get("birth_date") or person.get("birth_place"):
-            born = " ".join(filter(None, [
-                person.get("birth_date"), person.get("birth_place")
-            ]))
+            born = " ".join(
+                filter(None, [person.get("birth_date"), person.get("birth_place")])
+            )
             summary_parts.append(f"Born: {born}")
         if person.get("death_date") or person.get("death_place"):
-            died = " ".join(filter(None, [
-                person.get("death_date"), person.get("death_place")
-            ]))
+            died = " ".join(
+                filter(None, [person.get("death_date"), person.get("death_place")])
+            )
             summary_parts.append(f"Died: {died}")
         if person.get("occupation"):
             summary_parts.append(f"Occupation: {person['occupation']}")
@@ -232,12 +235,17 @@ class FamilyNodeAgent(BaseAgent):
     def _accept_knowledge(self, knowledge: Dict[str, Any]) -> Dict[str, Any]:
         """Accept a knowledge contribution from a descendant node."""
         self._collected_knowledge.append(knowledge)
-        self.remember({
-            "event": "knowledge_received",
-            "from": knowledge.get("person_id"),
-            "summary": knowledge.get("summary"),
-        })
-        return {"status": "accepted", "total_contributions": len(self._collected_knowledge)}
+        self.remember(
+            {
+                "event": "knowledge_received",
+                "from": knowledge.get("person_id"),
+                "summary": knowledge.get("summary"),
+            }
+        )
+        return {
+            "status": "accepted",
+            "total_contributions": len(self._collected_knowledge),
+        }
 
     def _relay_report(self, report: Dict[str, Any]) -> Dict[str, Any]:
         """Store and propagate a discovery report received from a parent scout."""
@@ -254,15 +262,17 @@ class FamilyNodeAgent(BaseAgent):
 
     def get_status(self) -> Dict[str, Any]:
         base = super().get_status()
-        base.update({
-            "person_id": self.person_id,
-            "person_name": self.person_data.get("name"),
-            "mother": self.mother_agent.person_id if self.mother_agent else None,
-            "father": self.father_agent.person_id if self.father_agent else None,
-            "children": [c.person_id for c in self.child_agents],
-            "knowledge_contributions": len(self._collected_knowledge),
-            "discovery_reports": len(self._discovery_reports),
-        })
+        base.update(
+            {
+                "person_id": self.person_id,
+                "person_name": self.person_data.get("name"),
+                "mother": self.mother_agent.person_id if self.mother_agent else None,
+                "father": self.father_agent.person_id if self.father_agent else None,
+                "children": [c.person_id for c in self.child_agents],
+                "knowledge_contributions": len(self._collected_knowledge),
+                "discovery_reports": len(self._discovery_reports),
+            }
+        )
         return base
 
 
@@ -359,11 +369,19 @@ class LineageScoutAgent(FamilyNodeAgent):
         # Own data
         person = self.person_data
         if person.get("birth_place"):
-            clues.append({"type": "location", "value": person["birth_place"], "source": self.person_id})
+            clues.append(
+                {
+                    "type": "location",
+                    "value": person["birth_place"],
+                    "source": self.person_id,
+                }
+            )
         if person.get("name"):
             surname = self._extract_surname(person["name"])
             if surname:
-                clues.append({"type": "surname", "value": surname, "source": self.person_id})
+                clues.append(
+                    {"type": "surname", "value": surname, "source": self.person_id}
+                )
         for note in person.get("notes", []):
             if note:
                 clues.append({"type": "note", "value": note, "source": self.person_id})
@@ -371,26 +389,32 @@ class LineageScoutAgent(FamilyNodeAgent):
         # Descendant contributions
         for contribution in self._collected_knowledge:
             if contribution.get("birth_place"):
-                clues.append({
-                    "type": "location",
-                    "value": contribution["birth_place"],
-                    "source": contribution.get("person_id"),
-                })
+                clues.append(
+                    {
+                        "type": "location",
+                        "value": contribution["birth_place"],
+                        "source": contribution.get("person_id"),
+                    }
+                )
             if contribution.get("name"):
                 surname = self._extract_surname(contribution["name"])
                 if surname:
-                    clues.append({
-                        "type": "surname",
-                        "value": surname,
-                        "source": contribution.get("person_id"),
-                    })
+                    clues.append(
+                        {
+                            "type": "surname",
+                            "value": surname,
+                            "source": contribution.get("person_id"),
+                        }
+                    )
             for note in contribution.get("notes", []):
                 if note:
-                    clues.append({
-                        "type": "note",
-                        "value": note,
-                        "source": contribution.get("person_id"),
-                    })
+                    clues.append(
+                        {
+                            "type": "note",
+                            "value": note,
+                            "source": contribution.get("person_id"),
+                        }
+                    )
 
         # Deduplicate by (type, value)
         seen = set()
@@ -426,17 +450,19 @@ class LineageScoutAgent(FamilyNodeAgent):
         notes = [c["value"] for c in clues if c["type"] == "note"]
 
         if surnames or locations:
-            candidates.append({
-                "type": "search_target",
-                "description": (
-                    f"Archive/DNA search for surname(s) {surnames} "
-                    f"in location(s) {locations}"
-                ),
-                "surnames": surnames,
-                "locations": locations,
-                "confidence": "pending",
-                "notes_hints": notes,
-            })
+            candidates.append(
+                {
+                    "type": "search_target",
+                    "description": (
+                        f"Archive/DNA search for surname(s) {surnames} "
+                        f"in location(s) {locations}"
+                    ),
+                    "surnames": surnames,
+                    "locations": locations,
+                    "confidence": "pending",
+                    "notes_hints": notes,
+                }
+            )
 
         return candidates
 
@@ -509,25 +535,7 @@ class FamilyTreeManager(BaseAgent):
     # Tree loading
     # ------------------------------------------------------------------
 
-    def load_tree(self, tree_data: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Build the agent hierarchy from a normalised tree dict.
-
-        Args:
-            tree_data: Dict produced by GEDCOMImporter, JSONImporter, or
-                       Archivist.  Must contain ``individuals`` and
-                       ``relationships`` lists.
-
-        Returns:
-            Summary of the loaded tree.
-        """
-        self._nodes = {}
-        self._root_nodes = []
-        self._leaf_nodes = []
-
-        individuals = tree_data.get("individuals", [])
-        relationships = tree_data.get("relationships", [])
-
+    def _create_nodes(self, individuals: List[Dict[str, Any]]) -> None:
         # Create a node agent for every individual
         for person in individuals:
             pid = str(person.get("id", ""))
@@ -540,6 +548,7 @@ class FamilyTreeManager(BaseAgent):
             )
             self._nodes[pid] = node
 
+    def _wire_relationships(self, relationships: List[Dict[str, Any]]) -> None:
         # Wire parent–child relationships
         for rel in relationships:
             if rel.get("type") != "parent":
@@ -566,6 +575,7 @@ class FamilyTreeManager(BaseAgent):
                 else:
                     child_node.set_mother(parent_node)
 
+    def _identify_roots_and_leaves(self) -> None:
         # Identify root nodes (oldest generation — no parents → scouts)
         # and leaf nodes (youngest — no children → starting generation)
         for node in self._nodes.values():
@@ -585,15 +595,44 @@ class FamilyTreeManager(BaseAgent):
                 scout.memory = node.memory
                 # Re-wire children to point to the scout
                 for child in scout.child_agents:
-                    if child.mother_agent and child.mother_agent.person_id == scout.person_id:
+                    if (
+                        child.mother_agent
+                        and child.mother_agent.person_id == scout.person_id
+                    ):
                         child.mother_agent = scout
-                    if child.father_agent and child.father_agent.person_id == scout.person_id:
+                    if (
+                        child.father_agent
+                        and child.father_agent.person_id == scout.person_id
+                    ):
                         child.father_agent = scout
                 self._nodes[node.person_id] = scout
                 self._root_nodes.append(scout)
 
             if not has_children:
                 self._leaf_nodes.append(self._nodes[node.person_id])
+
+    def load_tree(self, tree_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Build the agent hierarchy from a normalised tree dict.
+
+        Args:
+            tree_data: Dict produced by GEDCOMImporter, JSONImporter, or
+                       Archivist.  Must contain ``individuals`` and
+                       ``relationships`` lists.
+
+        Returns:
+            Summary of the loaded tree.
+        """
+        self._nodes = {}
+        self._root_nodes = []
+        self._leaf_nodes = []
+
+        individuals = tree_data.get("individuals", [])
+        relationships = tree_data.get("relationships", [])
+
+        self._create_nodes(individuals)
+        self._wire_relationships(relationships)
+        self._identify_roots_and_leaves()
 
         summary = {
             "status": "loaded",
@@ -671,12 +710,14 @@ class FamilyTreeManager(BaseAgent):
 
     def get_status(self) -> Dict[str, Any]:
         base = super().get_status()
-        base.update({
-            "total_nodes": len(self._nodes),
-            "scout_nodes": len(self._root_nodes),
-            "youngest_nodes": len(self._leaf_nodes),
-            "discovery_cycles_run": len(self._discovery_reports),
-        })
+        base.update(
+            {
+                "total_nodes": len(self._nodes),
+                "scout_nodes": len(self._root_nodes),
+                "youngest_nodes": len(self._leaf_nodes),
+                "discovery_cycles_run": len(self._discovery_reports),
+            }
+        )
         return base
 
     # ------------------------------------------------------------------
