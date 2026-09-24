@@ -3,6 +3,7 @@
 import logging
 import time
 from typing import List, Dict, Any, Optional
+from concurrent.futures import ThreadPoolExecutor
 from sagascout.core.base_agent import BaseAgent
 
 logger = logging.getLogger(__name__)
@@ -11,7 +12,7 @@ logger = logging.getLogger(__name__)
 class Oracle(BaseAgent):
     """
     Oracle agent specializes in multilingual research and document extraction.
-    
+
     Capabilities:
     - Multilingual web research across countries and archives
     - Document extraction and evidence gathering
@@ -33,8 +34,23 @@ class Oracle(BaseAgent):
         """
         super().__init__(name, config)
         self.supported_languages = [
-            "en", "es", "fr", "de", "it", "pt", "nl", "sv", "no", "da",
-            "pl", "ru", "zh", "ja", "ko", "ar", "he",
+            "en",
+            "es",
+            "fr",
+            "de",
+            "it",
+            "pt",
+            "nl",
+            "sv",
+            "no",
+            "da",
+            "pl",
+            "ru",
+            "zh",
+            "ja",
+            "ko",
+            "ar",
+            "he",
         ]
         self.research_cache = {}
         self.documents = []
@@ -54,7 +70,7 @@ class Oracle(BaseAgent):
             Dictionary with research results
         """
         action = input_data.get("action")
-        
+
         if action == "research":
             result = self.research(input_data)
         elif action == "extract":
@@ -67,11 +83,13 @@ class Oracle(BaseAgent):
             result = {"error": f"Unknown action: {action}"}
 
         # Remember this research
-        self.remember({
-            "event": "research_operation",
-            "action": action,
-            "timestamp": input_data.get("timestamp", "unknown"),
-        })
+        self.remember(
+            {
+                "event": "research_operation",
+                "action": action,
+                "timestamp": input_data.get("timestamp", "unknown"),
+            }
+        )
 
         return result
 
@@ -102,19 +120,27 @@ class Oracle(BaseAgent):
             }
 
         results = []
-        for lang in languages:
-            if lang in self.supported_languages:
-                if self.config.get("live_search"):
-                    sources = self._live_search(query, lang, countries)
-                else:
-                    sources = self._generate_sources(query, lang, countries)
-                result = {
-                    "language": lang,
-                    "query": query,
-                    "sources": sources,
-                    "summary": f"Research results for '{query}' in {lang}",
-                }
-                results.append(result)
+
+        def process_language(lang):
+            if lang not in self.supported_languages:
+                return None
+
+            if self.config.get("live_search"):
+                sources = self._live_search(query, lang, countries)
+            else:
+                sources = self._generate_sources(query, lang, countries)
+
+            return {
+                "language": lang,
+                "query": query,
+                "sources": sources,
+                "summary": f"Research results for '{query}' in {lang}",
+            }
+
+        with ThreadPoolExecutor(max_workers=min(10, len(languages) or 1)) as executor:
+            for result in executor.map(process_language, languages):
+                if result is not None:
+                    results.append(result)
 
         # Cache results
         self.research_cache[cache_key] = results
@@ -165,28 +191,34 @@ class Oracle(BaseAgent):
                     href = link.get("href", "")
                     if href.startswith("/"):
                         href = f"https://www.familysearch.org{href}"
-                    sources.append({
-                        "id": f"live_{language}_{len(sources)}",
-                        "language": language,
-                        "type": "archive",
-                        "reliability": 0.9,
-                        "url": href,
-                        "title": link.get_text(strip=True),
-                    })
+                    sources.append(
+                        {
+                            "id": f"live_{language}_{len(sources)}",
+                            "language": language,
+                            "type": "archive",
+                            "reliability": 0.9,
+                            "url": href,
+                            "title": link.get_text(strip=True),
+                        }
+                    )
                 break
             except Exception as exc:
                 logger.debug(
                     "Live search attempt %d/%d failed for query=%r lang=%r: %s",
-                    attempt + 1, 3, query, language, exc,
+                    attempt + 1,
+                    3,
+                    query,
+                    language,
+                    exc,
                 )
                 if attempt < 2:
-                    time.sleep(2 ** attempt)
+                    time.sleep(2**attempt)
                 else:
                     # Fall back to stubs on persistent failure
                     return self._generate_sources(query, language, countries)
 
-        return sources if sources else self._generate_sources(
-            query, language, countries
+        return (
+            sources if sources else self._generate_sources(query, language, countries)
         )
 
     def extract_document(self, request: Dict[str, Any]) -> Dict[str, Any]:
@@ -283,7 +315,7 @@ class Oracle(BaseAgent):
         countries = request.get("countries", [])
 
         results = []
-        
+
         # Supported archives by country
         archive_map = {
             "US": ["Ancestry.com", "FamilySearch", "MyHeritage"],
@@ -302,9 +334,7 @@ class Oracle(BaseAgent):
                         "archive": archive,
                         "country": country,
                         "query": query,
-                        "records_found": self._simulate_archive_search(
-                            archive, query
-                        ),
+                        "records_found": self._simulate_archive_search(archive, query),
                     }
                     results.append(result)
 
@@ -321,7 +351,7 @@ class Oracle(BaseAgent):
     ) -> List[Dict[str, Any]]:
         """Generate simulated research sources."""
         sources = []
-        
+
         base_sources = [
             {"type": "archive", "reliability": 0.9},
             {"type": "genealogy_site", "reliability": 0.8},
@@ -340,7 +370,9 @@ class Oracle(BaseAgent):
             # Tailor source based on countries if provided
             if countries:
                 source["countries"] = countries
-                source["url"] = f"https://example.com/{language}/{countries[0]}/source{idx}"
+                source["url"] = (
+                    f"https://example.com/{language}/{countries[0]}/source{idx}"
+                )
             sources.append(source)
 
         return sources
@@ -372,69 +404,82 @@ class Oracle(BaseAgent):
 
     def _extract_birth_record(self, document: Dict[str, Any]) -> Dict[str, Any]:
         """Extract data from a birth record."""
-        fields = self._extract_document_fields(document, {
-            "name": "name",
-            "birth_date": "date",
-            "birth_place": "place",
-            "parents": "parents[]",
-        })
+        fields = self._extract_document_fields(
+            document,
+            {
+                "name": "name",
+                "birth_date": "date",
+                "birth_place": "place",
+                "parents": "parents[]",
+            },
+        )
         fields["record_type"] = "birth"
         return fields
 
     def _extract_death_record(self, document: Dict[str, Any]) -> Dict[str, Any]:
         """Extract data from a death record."""
-        fields = self._extract_document_fields(document, {
-            "name": "name",
-            "death_date": "date",
-            "death_place": "place",
-            "age": "age",
-        })
+        fields = self._extract_document_fields(
+            document,
+            {
+                "name": "name",
+                "death_date": "date",
+                "death_place": "place",
+                "age": "age",
+            },
+        )
         fields["record_type"] = "death"
         return fields
 
     def _extract_marriage_record(self, document: Dict[str, Any]) -> Dict[str, Any]:
         """Extract data from a marriage record."""
-        fields = self._extract_document_fields(document, {
-            "spouse1": "spouse1",
-            "spouse2": "spouse2",
-            "marriage_date": "date",
-            "marriage_place": "place",
-        })
+        fields = self._extract_document_fields(
+            document,
+            {
+                "spouse1": "spouse1",
+                "spouse2": "spouse2",
+                "marriage_date": "date",
+                "marriage_place": "place",
+            },
+        )
         fields["record_type"] = "marriage"
         return fields
 
     def _extract_census(self, document: Dict[str, Any]) -> Dict[str, Any]:
         """Extract data from a census record."""
-        fields = self._extract_document_fields(document, {
-            "year": "year",
-            "household": "household[]",
-            "location": "location",
-        })
+        fields = self._extract_document_fields(
+            document,
+            {
+                "year": "year",
+                "household": "household[]",
+                "location": "location",
+            },
+        )
         fields["record_type"] = "census"
         return fields
 
     def _extract_general(self, document: Dict[str, Any]) -> Dict[str, Any]:
         """Extract general information from a document."""
-        fields = self._extract_document_fields(document, {
-            "content": "content",
-            "metadata": "metadata{}",
-        })
+        fields = self._extract_document_fields(
+            document,
+            {
+                "content": "content",
+                "metadata": "metadata{}",
+            },
+        )
         fields["record_type"] = "general"
         return fields
 
-    def _calculate_extraction_confidence(
-        self, extracted: Dict[str, Any]
-    ) -> float:
+    def _calculate_extraction_confidence(self, extracted: Dict[str, Any]) -> float:
         """Calculate confidence in extraction."""
         data = extracted.get("data", {})
-        
+
         # Count non-empty fields
         filled_fields = sum(1 for v in data.values() if v)
         total_fields = len(data)
-        
+
         if total_fields == 0:
             return 0.0
-        
+
         return (filled_fields / total_fields) * 100
 
     def _translate_with_google(self, text: str, target_lang: str) -> str:
@@ -452,6 +497,7 @@ class Oracle(BaseAgent):
         """
         try:
             from deep_translator import GoogleTranslator
+
             return GoogleTranslator(source="auto", target=target_lang).translate(text)
         except Exception:
             return f"[{target_lang}] {text}"
