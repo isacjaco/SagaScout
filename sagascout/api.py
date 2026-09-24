@@ -72,7 +72,7 @@ class AgentResponse(BaseModel):
 @app.get("/health", tags=["system"])
 def health() -> Dict[str, str]:
     """Return API liveness status."""
-    return {"status": "ok"}
+    return {"status": "ok", "version": "0.1.0"}
 
 
 # ---------------------------------------------------------------------------
