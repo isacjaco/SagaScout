@@ -644,5 +644,26 @@ def test_api_archivist_parse():
     assert response.json()["result"]["status"] == "success"
 
 
+
+def test_persistence_save_agent_state_mocking():
+    """Test save_agent_state using mock for pathlib.Path.write_text and json serialization."""
+    from unittest.mock import patch
+    import json
+    from sagascout.agents.scout import Scout
+    from sagascout.persistence import save_agent_state
+
+    scout = Scout(name="MockScout")
+    scout.matches = [{"id": "m1", "shared_cm": 500}]
+
+    expected_state = scout.to_json()
+    expected_state["__type__"] = "Scout"
+    expected_state["__name__"] = scout.name
+    expected_state["__config__"] = scout.config
+
+    with patch("pathlib.Path.write_text") as mock_write_text:
+        save_agent_state(scout, "dummy_path.json")
+
+    mock_write_text.assert_called_once_with(json.dumps(expected_state, indent=2), encoding="utf-8")
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
