@@ -2,7 +2,7 @@
 
 import json
 import re
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Tuple
 
 
 class GEDCOMImporter:
